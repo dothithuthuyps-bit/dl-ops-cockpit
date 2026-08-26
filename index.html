@@ -648,7 +648,10 @@ const PERMS = {
   mark_paid: ["payer", "admin"],
   set_budgets: ["admin", "finance_director"],
   manage_master: ["admin"],
-  view_dashboard: ["requester", "team_leader", "accountant", "finance_director", "ceo", "payer", "admin", "viewer"]
+  view_dashboard: ["requester", "team_leader", "accountant", "finance_director", "ceo", "payer", "admin", "viewer"],
+  request_leave: ["requester", "team_leader", "accountant", "finance_director", "ceo", "payer", "admin", "hr_manager"],
+  review_leave: ["hr_manager", "admin", "ceo", "finance_director"],
+  approve_leave: ["hr_manager", "admin", "ceo"]
 };
 const can = (role, a) => (PERMS[a] || []).includes(role);
 const STATUS = {
@@ -1944,6 +1947,10 @@ function seed() {
     hrDepartments: HR.hrDepartments,
     finSnapshots: FIN_SNAPSHOTS_SEED,
     actionItems: ACTION_ITEMS_SEED,
+    leaveTypes: LEAVE_TYPES_SEED,
+    leaveBalances: [],
+    leaveRequests: [],
+    policyDocs: [],
     settings: {
       webhookUrl: "https://hook.us2.make.com/bsh3fl3qco185yg6nqm1k27dd14gcj19",
       emailEnabled: true,
@@ -2473,6 +2480,569 @@ function FinanceTurnaround({
   }, structural.map(ActionCard))), E("div", {
     className: "text-[11px] text-neutral-400"
   }, "Source: ", latest.source, ". Status and current-value fields are editable here and sync live to Supabase (fin_snapshots / action_items) — add a new period row directly in Supabase once management accounts close each quarter."));
+}
+
+/* ================= Leave & Time Off ================= */
+const LEAVE_TYPES_SEED = [{
+  code: "annual", name: "Annual Leave", deductsFrom: "annual", advanceNotice: true, sortOrder: 1
+}, {
+  code: "recharge", name: "Recharge Day", deductsFrom: "recharge", advanceNotice: true, sortOrder: 2
+}, {
+  code: "post_project", name: "Post-Project Recovery", deductsFrom: "post_project", advanceNotice: false, sortOrder: 3
+}, {
+  code: "sick", name: "Sick Leave", deductsFrom: "none", advanceNotice: false, sortOrder: 4
+}, {
+  code: "funeral", name: "Funeral / Bereavement Leave", deductsFrom: "none", advanceNotice: false, sortOrder: 5
+}, {
+  code: "marriage", name: "Marriage Leave", deductsFrom: "none", advanceNotice: true, sortOrder: 6
+}, {
+  code: "maternity", name: "Maternity Leave", deductsFrom: "none", advanceNotice: true, sortOrder: 7
+}, {
+  code: "paternity", name: "Paternity Leave", deductsFrom: "none", advanceNotice: true, sortOrder: 8
+}, {
+  code: "unpaid", name: "Unpaid Leave", deductsFrom: "none", advanceNotice: true, sortOrder: 9
+}, {
+  code: "other", name: "Other", deductsFrom: "none", advanceNotice: true, sortOrder: 10
+}];
+const LEVEL_TIER = {
+  ceo: "director", director: "director",
+  "associate director": "leader", "senior manager": "leader", manager: "leader",
+  "associate manager": "leader", "senior consultant": "leader", eo: "leader", "executive officer": "leader",
+  executive: "execution", consultant: "execution",
+  intern: "intern"
+};
+const TIER_BASE_DAYS = {
+  director: 17, leader: 15, execution: 14, intern: 0
+};
+const TIER_LABEL = {
+  director: "Director", leader: "Project Leader", execution: "Execution", intern: "Intern"
+};
+const LEAVE_TYPE_TONE = {
+  annual: "bg-blue-50 text-blue-700 ring-blue-200",
+  recharge: "bg-cyan-50 text-cyan-700 ring-cyan-200",
+  post_project: "bg-violet-50 text-violet-700 ring-violet-200",
+  sick: "bg-rose-50 text-rose-700 ring-rose-200",
+  funeral: "bg-neutral-100 text-neutral-600 ring-neutral-200",
+  marriage: "bg-amber-50 text-amber-800 ring-amber-200",
+  maternity: "bg-amber-50 text-amber-800 ring-amber-200",
+  paternity: "bg-amber-50 text-amber-800 ring-amber-200",
+  unpaid: "bg-neutral-100 text-neutral-500 ring-neutral-200",
+  other: "bg-neutral-100 text-neutral-600 ring-neutral-200"
+};
+const LEAVE_STATUS_TONE = {
+  Submitted: "bg-blue-50 text-blue-700 ring-blue-200",
+  "Pending Approval": "bg-amber-50 text-amber-800 ring-amber-200",
+  Approved: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  Rejected: "bg-rose-50 text-rose-700 ring-rose-200",
+  "HR Rejected": "bg-rose-50 text-rose-700 ring-rose-200",
+  Cancelled: "bg-neutral-100 text-neutral-500 ring-neutral-200"
+};
+function leaveTier(emp) {
+  if (!emp || !emp.level) return null;
+  return LEVEL_TIER[String(emp.level).trim().toLowerCase()] || null;
+}
+function entitlementFor(emp, year) {
+  const yearStart = new Date(year, 0, 1),
+    yearEnd = new Date(year, 11, 31);
+  if (!emp) return {
+    tier: null, days: 0, eligible: false, note: "No employee record."
+  };
+  if (emp.status === "Probation") return {
+    tier: leaveTier(emp), days: 0, eligible: false, note: "On probation — Annual Leave Policy applies once probation is completed."
+  };
+  const tier = leaveTier(emp);
+  if (tier === "intern") {
+    if (!emp.start) return {
+      tier, days: 0, eligible: false, note: "Internship start date missing — cannot calculate (policy: 1 day per month interned). Needs HR input."
+    };
+    const start = parse(emp.start);
+    if (start > yearEnd) return {
+      tier, days: 0, eligible: false, note: "Not yet started in " + year + "."
+    };
+    const from = start > yearStart ? start : yearStart;
+    const months = Math.max(0, 12 - from.getMonth());
+    return {
+      tier, days: months, eligible: true, note: months + " month(s) of internship counted in " + year + " (1 day / month interned)."
+    };
+  }
+  if (!tier) return {
+    tier: null, days: 14, eligible: true, note: "Level “" + emp.level + "” isn’t mapped to a policy tier — defaulted to 14d (Execution). Please confirm the correct tier."
+  };
+  const base = TIER_BASE_DAYS[tier];
+  let tenureBonus = 0,
+    tenureNote = "";
+  if (emp.start) {
+    const yrs = (yearEnd - parse(emp.start)) / 31557600000;
+    if (yrs >= 4) {
+      tenureBonus = 2;
+      tenureNote = " + 2 tenure (4y+ service)";
+    } else if (yrs >= 2) {
+      tenureBonus = 1;
+      tenureNote = " + 1 tenure (2y+ service)";
+    }
+  }
+  const fullDays = base + tenureBonus;
+  if (!emp.start) return {
+    tier, days: fullDays, eligible: true, note: TIER_LABEL[tier] + " base " + base + "d — start date missing, tenure bonus not applied."
+  };
+  const start = parse(emp.start);
+  if (start <= yearStart) return {
+    tier, days: fullDays, eligible: true, note: TIER_LABEL[tier] + " base " + base + "d" + tenureNote + "."
+  };
+  if (start > yearEnd) return {
+    tier, days: 0, eligible: false, note: "Starts after " + year + "."
+  };
+  const monthsWorked = 12 - start.getMonth();
+  const proRata = Math.ceil(fullDays * monthsWorked / 12);
+  return {
+    tier, days: proRata, eligible: true, note: "Pro-rata " + monthsWorked + "/12 months of " + fullDays + "d (joined " + fmtDateY(emp.start) + ")."
+  };
+}
+function leaveBalanceRow(db, empId, year) {
+  return (db.leaveBalances || []).find(b => b.employeeId === empId && b.year === year);
+}
+function leaveUsedDays(db, empId, year, deductsFrom) {
+  const types = new Set((db.leaveTypes && db.leaveTypes.length ? db.leaveTypes : LEAVE_TYPES_SEED).filter(t => t.deductsFrom === deductsFrom).map(t => t.code));
+  return (db.leaveRequests || []).filter(r => r.employeeId === empId && r.status === "Approved" && types.has(r.leaveType) && new Date(r.startDate).getFullYear() === year).reduce((s, r) => s + Number(r.days || 0), 0);
+}
+function leaveBalanceFor(db, emp, year) {
+  const ent = entitlementFor(emp, year);
+  const row = leaveBalanceRow(db, emp.id, year);
+  const carriedIn = row ? Number(row.carriedIn || 0) : 0;
+  const adjustment = row ? Number(row.adjustment || 0) : 0;
+  const used = leaveUsedDays(db, emp.id, year, "annual");
+  const entitled = ent.days + carriedIn + adjustment;
+  return {
+    ...ent, carriedIn, adjustment, used, entitled, remaining: entitled - used
+  };
+}
+function passToApproval(next, reqId, actorId, actorRole, comment) {
+  next.leaveRequests = next.leaveRequests || [];
+  const r = next.leaveRequests.find(x => x.id === reqId);
+  if (!r) return;
+  r.status = "Pending Approval";
+  r.hrReviewerId = actorId;
+  r.hrDecisionAt = Date.now();
+  r.hrComment = comment || "";
+  r.updatedAt = Date.now();
+  next.audit.unshift({
+    id: uid("au"), ts: Date.now(), requestId: r.id, actorId, role: actorRole, action: "leave_hr_passed",
+    detail: r.leaveType + " · " + r.days + "d · " + fmtDate(r.startDate) + "–" + fmtDate(r.endDate) + (comment ? " · " + comment : "")
+  });
+}
+function hrRejectLeave(next, reqId, actorId, actorRole, comment) {
+  next.leaveRequests = next.leaveRequests || [];
+  const r = next.leaveRequests.find(x => x.id === reqId);
+  if (!r) return;
+  r.status = "HR Rejected";
+  r.hrReviewerId = actorId;
+  r.hrDecisionAt = Date.now();
+  r.hrComment = comment || "";
+  r.updatedAt = Date.now();
+  next.audit.unshift({
+    id: uid("au"), ts: Date.now(), requestId: r.id, actorId, role: actorRole, action: "leave_hr_rejected",
+    detail: comment || "Failed HR / policy check."
+  });
+}
+function decideLeave(next, reqId, decision, actorId, actorRole, comment) {
+  next.leaveRequests = next.leaveRequests || [];
+  const r = next.leaveRequests.find(x => x.id === reqId);
+  if (!r) return;
+  r.status = decision === "approve" ? "Approved" : "Rejected";
+  r.approverId = actorId;
+  r.approverDecisionAt = Date.now();
+  r.approverComment = comment || "";
+  r.updatedAt = Date.now();
+  next.audit.unshift({
+    id: uid("au"), ts: Date.now(), requestId: r.id, actorId, role: actorRole, action: decision === "approve" ? "leave_approved" : "leave_rejected",
+    detail: r.leaveType + " · " + r.days + "d · " + fmtDate(r.startDate) + "–" + fmtDate(r.endDate) + (comment ? " · " + comment : "")
+  });
+}
+function LeaveTracker({
+  db,
+  role,
+  me,
+  update,
+  setModal
+}) {
+  const E = React.createElement;
+  const [sub, setSub] = useState("queue");
+  const YEAR = today().getFullYear();
+  const leaveRequests = db.leaveRequests || [];
+  const leaveTypes = (db.leaveTypes && db.leaveTypes.length ? db.leaveTypes : LEAVE_TYPES_SEED).slice().sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+  const typeName = c => (leaveTypes.find(t => t.code === c) || {}).name || c;
+  const empName = id => (db.employees.find(e => e.id === id) || {}).name || "—";
+  const empOf = id => db.employees.find(e => e.id === id);
+  const managerName = id => {
+    const e = empOf(id);
+    return e && e.managerId ? empName(e.managerId) : "—";
+  };
+  const canReview = can(role, "review_leave"),
+    canApprove = can(role, "approve_leave"),
+    canRequest = can(role, "request_leave");
+  const needHR = leaveRequests.filter(r => r.status === "Submitted").sort((a, b) => a.createdAt - b.createdAt);
+  const needApproval = leaveRequests.filter(r => r.status === "Pending Approval").sort((a, b) => (a.hrDecisionAt || 0) - (b.hrDecisionAt || 0));
+  const decided = leaveRequests.filter(r => ["Approved", "Rejected", "HR Rejected", "Cancelled"].includes(r.status)).sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 12);
+  const active = db.employees.filter(e => e.status !== "Resigned");
+  const setBalance = (empId, patch) => update(next => {
+    next.leaveBalances = next.leaveBalances || [];
+    const i = next.leaveBalances.findIndex(b => b.employeeId === empId && b.year === YEAR);
+    if (i >= 0) next.leaveBalances[i] = {
+      ...next.leaveBalances[i], ...patch, updatedAt: Date.now()
+    };else next.leaveBalances.push({
+      id: uid("lb"), employeeId: empId, year: YEAR, carriedIn: 0, adjustment: 0, adjustmentNote: "", updatedAt: Date.now(), ...patch
+    });
+  });
+  const Tag = ({
+    tone,
+    children
+  }) => E("span", {
+    className: "inline-flex items-center text-[11px] font-medium px-2 py-0.5 rounded-full ring-1 ring-inset " + (tone || "bg-neutral-100 text-neutral-600 ring-neutral-200")
+  }, children);
+  const ReqRow = ({
+    r,
+    actions
+  }) => {
+    const emp = empOf(r.employeeId);
+    return E("div", {
+      key: r.id, className: "px-4 py-3 flex items-start gap-3"
+    }, E(Avatar, {
+      name: emp ? emp.name : "?", size: 8
+    }), E("div", {
+      className: "flex-1 min-w-0"
+    }, E("div", {
+      className: "font-medium text-sm flex items-center gap-2 flex-wrap"
+    }, empName(r.employeeId), E(Tag, {
+      tone: LEAVE_TYPE_TONE[r.leaveType]
+    }, typeName(r.leaveType)), E(Tag, {
+      tone: LEAVE_STATUS_TONE[r.status]
+    }, r.status)), E("div", {
+      className: "text-[11px] text-neutral-400 mt-0.5"
+    }, r.dept, " · ", fmtDate(r.startDate), "–", fmtDate(r.endDate), " · ", r.days, "d · dept head: ", managerName(r.employeeId)), r.reason && E("div", {
+      className: "text-[12px] text-neutral-500 mt-1"
+    }, "“", r.reason, "”"), (r.hrComment || r.approverComment) && E("div", {
+      className: "text-[11px] text-neutral-400 mt-1"
+    }, r.hrComment && "HR: " + r.hrComment, r.hrComment && r.approverComment && " · ", r.approverComment && "Approver: " + r.approverComment)), actions);
+  };
+  const HRActions = r => E("div", {
+    className: "flex gap-2 shrink-0"
+  }, E("button", {
+    onClick: () => setModal({
+      type: "leave_hr", reqId: r.id, decision: "pass"
+    }),
+    className: "inline-flex items-center gap-1 text-xs bg-emerald-600 text-white rounded-full px-3 py-1.5 hover:bg-emerald-700"
+  }, E(Icon, {
+    n: "check", size: 12
+  }), " Pass to Dept Head"), E("button", {
+    onClick: () => setModal({
+      type: "leave_hr", reqId: r.id, decision: "reject"
+    }),
+    className: "inline-flex items-center gap-1 text-xs bg-white ring-1 ring-rose-200 text-rose-600 rounded-full px-3 py-1.5 hover:bg-rose-50"
+  }, E(Icon, {
+    n: "ban", size: 12
+  }), " Reject"));
+  const ApproveActions = r => E("div", {
+    className: "flex gap-2 shrink-0"
+  }, E("button", {
+    onClick: () => setModal({
+      type: "leave_decide", reqId: r.id, decision: "approve"
+    }),
+    className: "inline-flex items-center gap-1 text-xs bg-emerald-600 text-white rounded-full px-3 py-1.5 hover:bg-emerald-700"
+  }, E(Icon, {
+    n: "check", size: 12
+  }), " Approve"), E("button", {
+    onClick: () => setModal({
+      type: "leave_decide", reqId: r.id, decision: "reject"
+    }),
+    className: "inline-flex items-center gap-1 text-xs bg-white ring-1 ring-rose-200 text-rose-600 rounded-full px-3 py-1.5 hover:bg-rose-50"
+  }, E(Icon, {
+    n: "ban", size: 12
+  }), " Reject"));
+  const TABS = [{
+    id: "queue", label: "Requests"
+  }, {
+    id: "balances", label: "Balances & policy"
+  }];
+  return E("div", {
+    className: "max-w-5xl space-y-4"
+  }, E("div", {
+    className: "flex items-center gap-2 flex-wrap"
+  }, TABS.map(t => E("button", {
+    key: t.id, onClick: () => setSub(t.id),
+    className: "text-sm px-3 py-1.5 rounded-full flex items-center gap-1.5 " + (sub === t.id ? "bg-neutral-900 text-white" : "bg-white ring-1 ring-neutral-200 hover:bg-neutral-50")
+  }, t.label)), E("div", {
+    className: "flex-1"
+  }), canRequest && E("button", {
+    onClick: () => setModal({
+      type: "new_leave"
+    }),
+    className: "text-sm bg-neutral-900 text-white rounded-full px-4 py-1.5 inline-flex items-center gap-1.5"
+  }, E(Icon, {
+    n: "plus", size: 14
+  }), " New leave request")), sub === "queue" && E(React.Fragment, null, !canReview && !canApprove && E("div", {
+    className: "text-sm text-neutral-500 bg-white ring-1 ring-black/5 rounded-xl px-4 py-3"
+  }, "You're viewing as ", E("b", null, ROLES[role].label), " — HR/policy review and Department Head approval need HR Manager, Finance Director, CEO or Admin."), E(Card, {
+    className: "overflow-hidden"
+  }, E("div", {
+    className: "px-4 py-3 border-b border-neutral-100 flex items-center justify-between"
+  }, E("div", {
+    className: "font-display text-sm uppercase tracking-wide", style: {
+      fontWeight: 700
+    }
+  }, "Needs HR / policy check"), E("span", {
+    className: "text-[11px] text-neutral-400"
+  }, needHR.length, " awaiting")), E("div", {
+    className: "divide-y divide-neutral-50"
+  }, needHR.map(r => E(ReqRow, {
+    key: r.id, r, actions: canReview ? HRActions(r) : null
+  })), needHR.length === 0 && E("div", {
+    className: "px-4 py-8 text-center text-sm text-neutral-400"
+  }, "Nothing waiting on HR."))), E(Card, {
+    className: "overflow-hidden"
+  }, E("div", {
+    className: "px-4 py-3 border-b border-neutral-100 flex items-center justify-between"
+  }, E("div", {
+    className: "font-display text-sm uppercase tracking-wide", style: {
+      fontWeight: 700
+    }
+  }, "Needs Department Head approval"), E("span", {
+    className: "text-[11px] text-neutral-400"
+  }, needApproval.length, " awaiting")), E("div", {
+    className: "divide-y divide-neutral-50"
+  }, needApproval.map(r => E(ReqRow, {
+    key: r.id, r, actions: canApprove ? ApproveActions(r) : null
+  })), needApproval.length === 0 && E("div", {
+    className: "px-4 py-8 text-center text-sm text-neutral-400"
+  }, "Nothing waiting on a Department Head."))), E(Card, {
+    className: "overflow-hidden"
+  }, E("div", {
+    className: "px-4 py-3 border-b border-neutral-100 font-display text-sm uppercase tracking-wide", style: {
+      fontWeight: 700
+    }
+  }, "Recently decided"), E("div", {
+    className: "divide-y divide-neutral-50"
+  }, decided.map(r => E(ReqRow, {
+    key: r.id, r, actions: null
+  })), decided.length === 0 && E("div", {
+    className: "px-4 py-6 text-center text-sm text-neutral-400"
+  }, "No decisions yet.")))), sub === "balances" && E(React.Fragment, null, E(Card, {
+    className: "p-4 text-[12.5px] text-neutral-600 leading-snug"
+  }, E("div", {
+    className: "font-display text-[13px] uppercase tracking-wide mb-1", style: {
+      fontWeight: 700
+    }
+  }, "Annual Leave Policy v3.0 — effective Sep 1, 2026"), "Execution 14d · Project Leader (EO/Senior Consultant/Assoc. Manager–Senior Manager/Assoc. Director) 15d · Director 17d — all after probation, +1d after 2y tenure, +2d after 4y (all levels). Interns accrue 1d/month interned. Separate pools: 2 recharge days/yr, 1 post-project-recovery day. Unused AL carries to next year but must be cleared by Mar 31 or is forfeited (no cash-out). Requests need 5 days notice (0.5–3d), 10 days (>3d), or 1 month over Tết — except sick/funeral/emergencies. Flow: requester submits → HR/Finance checks policy & balance → Department Head approves/rejects → requester notified; every step is logged below and in the Audit log tab."), E(Card, {
+    className: "overflow-hidden"
+  }, E("div", {
+    className: "px-4 py-3 border-b border-neutral-100 font-display text-sm uppercase tracking-wide", style: {
+      fontWeight: 700
+    }
+  }, YEAR, " Annual Leave balances"), E("table", {
+    className: "w-full text-sm"
+  }, E("thead", null, E("tr", {
+    className: "text-left text-[11px] uppercase text-neutral-400 border-b border-neutral-100 bg-neutral-50/70"
+  }, E("th", {
+    className: "px-4 py-2.5 font-medium"
+  }, "Employee"), E("th", {
+    className: "px-4 py-2.5 font-medium"
+  }, "Tier"), E("th", {
+    className: "px-3 py-2.5 font-medium text-right"
+  }, "Entitled"), E("th", {
+    className: "px-3 py-2.5 font-medium text-right"
+  }, "Carried-in"), E("th", {
+    className: "px-3 py-2.5 font-medium text-right"
+  }, "Used"), E("th", {
+    className: "px-3 py-2.5 font-medium text-right"
+  }, "Remaining"))), E("tbody", {
+    className: "divide-y divide-neutral-50"
+  }, active.map(e => {
+    const b = leaveBalanceFor(db, e, YEAR);
+    return E("tr", {
+      key: e.id, title: b.note
+    }, E("td", {
+      className: "px-4 py-2 font-medium"
+    }, e.name, E("div", {
+      className: "text-[11px] text-neutral-400 font-normal"
+    }, e.dept)), E("td", {
+      className: "px-4 py-2 text-neutral-500"
+    }, b.tier ? TIER_LABEL[b.tier] : "—"), E("td", {
+      className: "px-3 py-2 text-right"
+    }, b.eligible ? b.days + "d" : "0d"), E("td", {
+      className: "px-3 py-2 text-right"
+    }, canReview ? E("input", {
+      type: "number", step: "0.5", defaultValue: b.carriedIn,
+      onBlur: ev => Number(ev.target.value || 0) !== b.carriedIn && setBalance(e.id, {
+        carriedIn: Number(ev.target.value || 0)
+      }),
+      className: "w-16 text-right text-sm border border-neutral-200 rounded-lg px-1.5 py-0.5 focus:outline-none focus:ring-2 focus:ring-neutral-900/10"
+    }) : b.carriedIn + "d"), E("td", {
+      className: "px-3 py-2 text-right text-neutral-500"
+    }, b.used, "d"), E("td", {
+      className: "px-3 py-2 text-right font-semibold " + (b.remaining < 0 ? "text-rose-600" : "text-neutral-800")
+    }, b.remaining, "d"));
+  })))), E("div", {
+    className: "text-[11px] text-neutral-400"
+  }, "Entitlement is calculated live from each employee's level, tenure and start date in the Employees table — fix those records to correct a balance. Carried-in is HR-editable (hover a row for the calculation note).")));
+}
+function LeaveModal({
+  db,
+  me,
+  role,
+  modal,
+  close,
+  update
+}) {
+  const E = React.createElement;
+  const leaveTypes = (db.leaveTypes && db.leaveTypes.length ? db.leaveTypes : LEAVE_TYPES_SEED).slice().sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+  const myEmp = me && me.email ? db.employees.find(e => e.email && e.email === me.email) : null;
+  const req = modal.reqId ? (db.leaveRequests || []).find(r => r.id === modal.reqId) : null;
+  const [form, setForm] = useState(() => {
+    if (modal.type === "new_leave") return {
+      employeeId: (myEmp && myEmp.id) || db.employees[0]?.id || "",
+      leaveType: "annual",
+      startDate: iso(today()),
+      endDate: iso(today()),
+      days: "1",
+      reason: ""
+    };
+    return {
+      comment: ""
+    };
+  });
+  const set = (k, v) => setForm(f => ({
+    ...f, [k]: v
+  }));
+  const isNew = modal.type === "new_leave";
+  const selEmp = isNew ? db.employees.find(e => e.id === form.employeeId) : req ? db.employees.find(e => e.id === req.employeeId) : null;
+  const selYear = isNew ? new Date(form.startDate).getFullYear() : req ? new Date(req.startDate).getFullYear() : today().getFullYear();
+  const bal = selEmp ? leaveBalanceFor(db, selEmp, selYear) : null;
+  const selType = isNew ? leaveTypes.find(t => t.code === form.leaveType) : req ? leaveTypes.find(t => t.code === req.leaveType) : null;
+  const advanceWarning = () => {
+    if (!isNew || !selType || !selType.advanceNotice) return null;
+    const days = Number(form.days || 0);
+    if (!days || !form.startDate) return null;
+    const need = days > 3 ? 10 : 5;
+    const lead = Math.round((parse(form.startDate) - today()) / 864e5);
+    if (lead < need) return "Only " + lead + " day(s) notice — policy asks for " + need + " days for a " + days + "-day request (Tết leave needs 1 month). HR/CEO can still approve as an exception.";
+    return null;
+  };
+  const balanceWarning = () => {
+    if (!isNew || !bal || !selType || selType.deductsFrom !== "annual") return null;
+    const days = Number(form.days || 0);
+    if (days > bal.remaining) return "Requesting " + days + "d but only " + bal.remaining + "d remain of " + bal.entitled + "d entitled for " + selYear + ".";
+    return null;
+  };
+  const titles = {
+    new_leave: "New leave request",
+    leave_hr: modal.decision === "pass" ? "Pass to Department Head" : "Reject at HR / policy check",
+    leave_decide: modal.decision === "approve" ? "Approve leave request" : "Reject leave request"
+  };
+  const save = () => {
+    if (modal.type === "new_leave") {
+      if (!form.employeeId || !form.startDate || !form.endDate || !Number(form.days)) return;
+      const employee = db.employees.find(e => e.id === form.employeeId);
+      const id = uid("lr");
+      update(next => {
+        next.leaveRequests = next.leaveRequests || [];
+        next.leaveRequests.push({
+          id, employeeId: form.employeeId, dept: (employee && employee.dept) || "", leaveType: form.leaveType,
+          startDate: form.startDate, endDate: form.endDate, days: Number(form.days), reason: form.reason,
+          status: "Submitted", hrReviewerId: null, hrDecisionAt: null, hrComment: "",
+          approverId: null, approverDecisionAt: null, approverComment: "",
+          createdBy: (me && me.id) || "", createdAt: Date.now(), updatedAt: Date.now()
+        });
+        next.audit.unshift({
+          id: uid("au"), ts: Date.now(), requestId: id, actorId: me && me.id, role,
+          action: "leave_submitted",
+          detail: (employee ? employee.name : form.employeeId) + " · " + (leaveTypes.find(t => t.code === form.leaveType) || {}).name + " · " + form.days + "d · " + fmtDate(form.startDate) + "–" + fmtDate(form.endDate)
+        });
+      });
+    } else if (modal.type === "leave_hr" && req) {
+      update(next => modal.decision === "pass" ? passToApproval(next, req.id, me && me.id, role, form.comment) : hrRejectLeave(next, req.id, me && me.id, role, form.comment));
+    } else if (modal.type === "leave_decide" && req) {
+      update(next => decideLeave(next, req.id, modal.decision, me && me.id, role, form.comment));
+    }
+    close();
+  };
+  const aw = advanceWarning(),
+    bw = balanceWarning();
+  return E("div", {
+    className: "fixed inset-0 bg-black/40 z-40 flex items-center justify-center p-4",
+    onClick: close
+  }, E("div", {
+    className: "bg-white rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] flex flex-col",
+    onClick: ev => ev.stopPropagation()
+  }, E("div", {
+    className: "px-5 py-4 border-b border-neutral-100 flex items-center justify-between"
+  }, E("div", {
+    className: "font-display uppercase tracking-wide text-sm", style: {
+      fontWeight: 800
+    }
+  }, titles[modal.type]), E("button", {
+    onClick: close, className: "text-neutral-400 hover:text-neutral-600"
+  }, E(Icon, {
+    n: "x", size: 18
+  }))), E("div", {
+    className: "overflow-auto p-5 space-y-3 text-sm"
+  }, isNew ? E(React.Fragment, null, E(Field, {
+    label: "Employee"
+  }, E("select", {
+    className: INP, value: form.employeeId, onChange: ev => set("employeeId", ev.target.value)
+  }, db.employees.filter(e => e.status !== "Resigned").map(e => E("option", {
+    key: e.id, value: e.id
+  }, e.name, " — ", e.dept)))), E(Field, {
+    label: "Leave type"
+  }, E("select", {
+    className: INP, value: form.leaveType, onChange: ev => set("leaveType", ev.target.value)
+  }, leaveTypes.map(t => E("option", {
+    key: t.code, value: t.code
+  }, t.name)))), E("div", {
+    className: "grid grid-cols-2 gap-3"
+  }, E(Field, {
+    label: "Start date"
+  }, E("input", {
+    type: "date", className: INP, value: form.startDate, onChange: ev => set("startDate", ev.target.value)
+  })), E(Field, {
+    label: "Return date"
+  }, E("input", {
+    type: "date", className: INP, value: form.endDate, onChange: ev => set("endDate", ev.target.value)
+  }))), E(Field, {
+    label: "Days requested"
+  }, E("input", {
+    type: "number", step: "0.5", min: "0.5", className: INP, value: form.days, onChange: ev => set("days", ev.target.value)
+  })), E(Field, {
+    label: "Note to PIC (optional)"
+  }, E("textarea", {
+    className: INP, rows: 2, value: form.reason, onChange: ev => set("reason", ev.target.value)
+  })), bal && selType && selType.deductsFrom === "annual" && E("div", {
+    className: "text-[11px] text-neutral-400 bg-neutral-50 rounded-xl px-3 py-2"
+  }, selEmp.name, " has ", bal.remaining, "d remaining of ", bal.entitled, "d entitled for ", selYear, "."), aw && E("div", {
+    className: "text-[12px] text-amber-800 bg-amber-50 ring-1 ring-amber-200 rounded-xl px-3 py-2"
+  }, aw), bw && E("div", {
+    className: "text-[12px] text-rose-700 bg-rose-50 ring-1 ring-rose-200 rounded-xl px-3 py-2"
+  }, bw)) : E(React.Fragment, null, req && E("div", {
+    className: "bg-neutral-50 rounded-xl px-3 py-2.5 text-[12.5px] text-neutral-600"
+  }, E("div", {
+    className: "font-medium text-neutral-800"
+  }, empName2(db, req.employeeId)), req.dept, " · ", (leaveTypes.find(t => t.code === req.leaveType) || {}).name, " · ", fmtDate(req.startDate), "–", fmtDate(req.endDate), " · ", req.days, "d", req.reason && E("div", {
+    className: "mt-1 italic"
+  }, "“", req.reason, "”"), bal && E("div", {
+    className: "mt-1"
+  }, "Balance: ", bal.remaining, "d remaining of ", bal.entitled, "d entitled for ", selYear, ".")), E(Field, {
+    label: "Comment (optional, visible to requester)"
+  }, E("textarea", {
+    className: INP, rows: 3, value: form.comment, onChange: ev => set("comment", ev.target.value)
+  })))), E("div", {
+    className: "px-5 py-4 border-t border-neutral-100 flex justify-end gap-2"
+  }, E("button", {
+    onClick: close, className: "text-sm px-4 py-2 rounded-full hover:bg-neutral-100"
+  }, "Cancel"), E("button", {
+    onClick: save,
+    className: "text-sm px-5 py-2 rounded-full text-white " + (modal.type !== "new_leave" && modal.decision === "reject" ? "bg-rose-600 hover:bg-rose-700" : "bg-neutral-900 hover:bg-neutral-700")
+  }, modal.type === "new_leave" ? "Submit request" : modal.type === "leave_hr" ? modal.decision === "pass" ? "Pass to Dept Head" : "Reject" : modal.decision === "approve" ? "Approve" : "Reject"))));
+}
+function empName2(db, id) {
+  return (db.employees.find(e => e.id === id) || {}).name || "—";
 }
 function EmployeesV({
   db,
@@ -3665,7 +4235,7 @@ const ms = x => {
 };
 async function loadFromSB() {
   try {
-    const [users, depsR, catsR, vend, plansR, catB, ccB, reqs, aud, setR, emps, cands, asts, tasks, hrdeps, finSnaps, actItems] = await Promise.all([sbGet("app_users"), sbGet("departments"), sbGet("categories"), sbGet("vendors"), sbGet("plans"), sbGet("category_budgets"), sbGet("cost_centre_budgets"), sbGet("requests"), sbGet("audit", "&order=ts.asc"), sbGet("app_settings"), sbGet("employees"), sbGet("candidates"), sbGet("assets"), sbGet("admin_tasks"), sbGet("hr_departments"), sbGet("fin_snapshots", "&order=period_end.asc"), sbGet("action_items", "&order=sort_order.asc")]);
+    const [users, depsR, catsR, vend, plansR, catB, ccB, reqs, aud, setR, emps, cands, asts, tasks, hrdeps, finSnaps, actItems, lvTypes, lvBal, lvReqs, polDocs] = await Promise.all([sbGet("app_users"), sbGet("departments"), sbGet("categories"), sbGet("vendors"), sbGet("plans"), sbGet("category_budgets"), sbGet("cost_centre_budgets"), sbGet("requests"), sbGet("audit", "&order=ts.asc"), sbGet("app_settings"), sbGet("employees"), sbGet("candidates"), sbGet("assets"), sbGet("admin_tasks"), sbGet("hr_departments"), sbGet("fin_snapshots", "&order=period_end.asc"), sbGet("action_items", "&order=sort_order.asc"), sbGet("leave_types", "&order=sort_order.asc"), sbGet("leave_balances"), sbGet("leave_requests", "&order=created_at.asc"), sbGet("policy_documents", "&order=created_at.asc")]);
     const plan0 = plansR[0] || {
       id: "plan_cur",
       month: iso(today()).slice(0, 7)
@@ -3797,6 +4367,21 @@ async function loadFromSB() {
       hrDepartments: hrdeps.map(d => d.name),
       finSnapshots: finSnaps.length ? finSnaps : FIN_SNAPSHOTS_SEED,
       actionItems: actItems.length ? actItems : ACTION_ITEMS_SEED,
+      leaveTypes: lvTypes.length ? lvTypes.map(t => ({
+        code: t.code, name: t.name, deductsFrom: t.deducts_from, advanceNotice: !!t.advance_notice, notes: t.notes || "", sortOrder: t.sort_order || 0
+      })) : LEAVE_TYPES_SEED,
+      leaveBalances: lvBal.map(b => ({
+        id: b.id, employeeId: b.employee_id, year: b.year, carriedIn: Number(b.carried_in || 0), adjustment: Number(b.adjustment || 0), adjustmentNote: b.adjustment_note || "", updatedAt: ms(b.updated_at)
+      })),
+      leaveRequests: lvReqs.map(r => ({
+        id: r.id, employeeId: r.employee_id, dept: r.dept || "", leaveType: r.leave_type, startDate: r.start_date, endDate: r.end_date, days: Number(r.days || 0), reason: r.reason || "",
+        status: r.status, hrReviewerId: r.hr_reviewer_id, hrDecisionAt: r.hr_decision_at ? ms(r.hr_decision_at) : null, hrComment: r.hr_comment || "",
+        approverId: r.approver_id, approverDecisionAt: r.approver_decision_at ? ms(r.approver_decision_at) : null, approverComment: r.approver_comment || "",
+        createdBy: r.created_by || "", createdAt: ms(r.created_at), updatedAt: ms(r.updated_at)
+      })),
+      policyDocs: polDocs.map(p => ({
+        id: p.id, title: p.title, version: p.version, effectiveDate: p.effective_date, approvedBy: p.approved_by, category: p.category, summary: p.summary, createdAt: ms(p.created_at)
+      })),
       settings: {
         _id: st.id || "default",
         webhookUrl: st.webhook_url || "",
@@ -3929,6 +4514,35 @@ const audSB = a => ({
   action: a.action,
   detail: a.detail
 });
+const leaveBalSB = b => ({
+  id: b.id,
+  employee_id: b.employeeId,
+  year: b.year,
+  carried_in: b.carriedIn,
+  adjustment: b.adjustment,
+  adjustment_note: b.adjustmentNote || "",
+  updated_at: new Date(b.updatedAt || Date.now()).toISOString()
+});
+const leaveReqSB = r => ({
+  id: r.id,
+  employee_id: r.employeeId,
+  dept: r.dept,
+  leave_type: r.leaveType,
+  start_date: r.startDate,
+  end_date: r.endDate,
+  days: r.days,
+  reason: r.reason,
+  status: r.status,
+  hr_reviewer_id: r.hrReviewerId,
+  hr_decision_at: r.hrDecisionAt ? new Date(r.hrDecisionAt).toISOString() : null,
+  hr_comment: r.hrComment,
+  approver_id: r.approverId,
+  approver_decision_at: r.approverDecisionAt ? new Date(r.approverDecisionAt).toISOString() : null,
+  approver_comment: r.approverComment,
+  created_by: r.createdBy,
+  created_at: new Date(r.createdAt || Date.now()).toISOString(),
+  updated_at: new Date(r.updatedAt || Date.now()).toISOString()
+});
 async function persistDb(prev, cur) {
   const chg = k => JSON.stringify(prev[k]) !== JSON.stringify(cur[k]);
   const jobs = [];
@@ -3948,6 +4562,8 @@ async function persistDb(prev, cur) {
     const neu = cur.audit.filter(a => !pids.has(a.id));
     if (neu.length) jobs.push(sbUpsert("audit", neu.map(audSB)));
   }
+  if (chg("leaveRequests")) jobs.push(sbUpsert("leave_requests", (cur.leaveRequests || []).map(leaveReqSB)));
+  if (chg("leaveBalances")) jobs.push(sbUpsert("leave_balances", (cur.leaveBalances || []).map(leaveBalSB)));
   if (chg("settings")) jobs.push(sbUpsert("app_settings", [{
     id: cur.settings._id || "default",
     approval_threshold: cur.settings.approvalThreshold,
@@ -4354,6 +4970,13 @@ function App() {
     group: "People",
     roles: ["hr_manager", "finance_director", "accountant", "ceo", "admin"]
   }, {
+    id: "leave",
+    label: "Leave & time off",
+    icon: "cal",
+    group: "People",
+    roles: ["requester", "team_leader", "accountant", "finance_director", "ceo", "payer", "admin", "hr_manager"],
+    badge: (db.leaveRequests || []).filter(r => (can(role, "review_leave") && r.status === "Submitted") || (can(role, "approve_leave") && r.status === "Pending Approval")).length
+  }, {
     id: "office",
     label: "Office & admin",
     icon: "building",
@@ -4565,6 +5188,12 @@ function App() {
     update: update,
     nameOf: enameOf,
     setModal: setModal
+  }), tab === "leave" && /*#__PURE__*/React.createElement(LeaveTracker, {
+    db: db,
+    role: role,
+    me: me,
+    update: update,
+    setModal: setModal
   }), tab === "finturn" && /*#__PURE__*/React.createElement(FinanceTurnaround, {
     db: db,
     update: update
@@ -4592,6 +5221,13 @@ function App() {
     close: () => setModal(null),
     update: update,
     nameOf: enameOf
+  }) : ["new_leave", "leave_hr", "leave_decide"].includes(modal.type) ? /*#__PURE__*/React.createElement(LeaveModal, {
+    db: db,
+    me: me,
+    role: role,
+    modal: modal,
+    close: () => setModal(null),
+    update: update
   }) : /*#__PURE__*/React.createElement(Modal, {
     db: db,
     me: me,
@@ -5189,14 +5825,22 @@ function Audit({
   const rows = db.audit.filter(a => f === "all" || a.action === f);
   const vFor = rid => {
     const r = db.requests.find(x => x.id === rid);
-    return r ? db.vendors.find(v => v.id === r.vendorId)?.name + " · " + money(r.amount) : "—";
+    if (r) return db.vendors.find(v => v.id === r.vendorId)?.name + " · " + money(r.amount);
+    const lr = (db.leaveRequests || []).find(x => x.id === rid);
+    if (lr) return (db.employees.find(e => e.id === lr.employeeId)?.name || "—") + " · " + lr.days + "d leave";
+    return "—";
   };
   const badge = {
     submitted: "bg-blue-50 text-blue-700",
     approved: "bg-emerald-50 text-emerald-700",
     rejected: "bg-rose-50 text-rose-700",
     scheduled: "bg-cyan-50 text-cyan-700",
-    paid: "bg-violet-50 text-violet-700"
+    paid: "bg-violet-50 text-violet-700",
+    leave_submitted: "bg-blue-50 text-blue-700",
+    leave_hr_passed: "bg-cyan-50 text-cyan-700",
+    leave_hr_rejected: "bg-rose-50 text-rose-700",
+    leave_approved: "bg-emerald-50 text-emerald-700",
+    leave_rejected: "bg-rose-50 text-rose-700"
   };
   const Stat = ({
     n,
@@ -5281,7 +5925,7 @@ function Audit({
     className: "px-4 py-2.5"
   }, /*#__PURE__*/React.createElement("span", {
     className: `text-[11px] font-semibold px-2 py-0.5 rounded-full capitalize ${badge[a.action] || "bg-neutral-100 text-neutral-600"}`
-  }, a.action)), /*#__PURE__*/React.createElement("td", {
+  }, String(a.action || "").replace(/_/g, " "))), /*#__PURE__*/React.createElement("td", {
     className: "px-4 py-2.5 font-medium"
   }, uname(db, a.actorId)), /*#__PURE__*/React.createElement("td", {
     className: "px-4 py-2.5 text-neutral-500"
