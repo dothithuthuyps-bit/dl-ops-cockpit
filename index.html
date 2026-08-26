@@ -2483,6 +2483,7 @@ function FinanceTurnaround({
 }
 
 /* ================= Leave & Time Off ================= */
+const ANNUAL_LEAVE_POLICY_PDF = "https://sywzltkyjorotywkzrnr.supabase.co/storage/v1/object/public/contracts/policies/annual-leave-policy-v3.pdf";
 const LEAVE_TYPES_SEED = [{
   code: "annual", name: "Annual Leave", deductsFrom: "annual", advanceNotice: true, sortOrder: 1
 }, {
@@ -2658,6 +2659,43 @@ function decideLeave(next, reqId, decision, actorId, actorRole, comment) {
     detail: r.leaveType + " · " + r.days + "d · " + fmtDate(r.startDate) + "–" + fmtDate(r.endDate) + (comment ? " · " + comment : "")
   });
 }
+function PolicyDocCard({
+  db
+}) {
+  const E = React.createElement;
+  const [big, setBig] = useState(false);
+  const doc = (db.policyDocs || []).find(p => p.id === "pol_al_v3") || (db.policyDocs || [])[0];
+  const url = (doc && doc.sourceUrl) || ANNUAL_LEAVE_POLICY_PDF;
+  return E(Card, {
+    className: "overflow-hidden"
+  }, E("div", {
+    className: "px-4 py-3 border-b border-neutral-100 flex items-center justify-between flex-wrap gap-2"
+  }, E("div", null, E("div", {
+    className: "font-display text-sm uppercase tracking-wide", style: {
+      fontWeight: 700
+    }
+  }, "Original policy document"), E("div", {
+    className: "text-[11px] text-neutral-400 mt-0.5"
+  }, doc ? doc.title + " · v" + doc.version + " · effective " + fmtDateY(doc.effectiveDate) + " · approved by " + doc.approvedBy : "Annual Leave Policy — v3.0")), E("div", {
+    className: "flex items-center gap-2"
+  }, E("button", {
+    onClick: () => setBig(b => !b),
+    className: "text-xs bg-white ring-1 ring-neutral-200 hover:bg-neutral-50 rounded-full px-3 py-1.5"
+  }, big ? "Collapse" : "Expand viewer"), E("a", {
+    href: url, target: "_blank", rel: "noreferrer",
+    className: "text-xs bg-neutral-900 text-white rounded-full px-3 py-1.5 hover:bg-neutral-700 inline-flex items-center gap-1.5"
+  }, E(Icon, {
+    n: "file", size: 12
+  }), " Open / download original PDF"))), E("iframe", {
+    src: url,
+    title: "Annual Leave Policy PDF",
+    style: {
+      width: "100%", height: big ? "85vh" : "480px", border: 0, display: "block"
+    }
+  }), E("div", {
+    className: "px-4 py-2 text-[11px] text-neutral-400 border-t border-neutral-100"
+  }, "This is the unedited original PDF — stored in Supabase Storage (contracts/policies/) and registered in the policy_documents table so it's versioned alongside every other HR record. The summary above is a quick-reference only; this document is the source of truth."));
+}
 function LeaveTracker({
   db,
   role,
@@ -2831,7 +2869,9 @@ function LeaveTracker({
     className: "font-display text-[13px] uppercase tracking-wide mb-1", style: {
       fontWeight: 700
     }
-  }, "Annual Leave Policy v3.0 — effective Sep 1, 2026"), "Execution 14d · Project Leader (EO/Senior Consultant/Assoc. Manager–Senior Manager/Assoc. Director) 15d · Director 17d — all after probation, +1d after 2y tenure, +2d after 4y (all levels). Interns accrue 1d/month interned. Separate pools: 2 recharge days/yr, 1 post-project-recovery day. Unused AL carries to next year but must be cleared by Mar 31 or is forfeited (no cash-out). Requests need 5 days notice (0.5–3d), 10 days (>3d), or 1 month over Tết — except sick/funeral/emergencies. Flow: requester submits → HR/Finance checks policy & balance → Department Head approves/rejects → requester notified; every step is logged below and in the Audit log tab."), E(Card, {
+  }, "Annual Leave Policy v3.0 — effective Sep 1, 2026"), "Execution 14d · Project Leader (EO/Senior Consultant/Assoc. Manager–Senior Manager/Assoc. Director) 15d · Director 17d — all after probation, +1d after 2y tenure, +2d after 4y (all levels). Interns accrue 1d/month interned. Separate pools: 2 recharge days/yr, 1 post-project-recovery day. Unused AL carries to next year but must be cleared by Mar 31 or is forfeited (no cash-out). Requests need 5 days notice (0.5–3d), 10 days (>3d), or 1 month over Tết — except sick/funeral/emergencies. Flow: requester submits → HR/Finance checks policy & balance → Department Head approves/rejects → requester notified; every step is logged below and in the Audit log tab."), E(PolicyDocCard, {
+    db
+  }), E(Card, {
     className: "overflow-hidden"
   }, E("div", {
     className: "px-4 py-3 border-b border-neutral-100 font-display text-sm uppercase tracking-wide", style: {
@@ -4380,7 +4420,7 @@ async function loadFromSB() {
         createdBy: r.created_by || "", createdAt: ms(r.created_at), updatedAt: ms(r.updated_at)
       })),
       policyDocs: polDocs.map(p => ({
-        id: p.id, title: p.title, version: p.version, effectiveDate: p.effective_date, approvedBy: p.approved_by, category: p.category, summary: p.summary, createdAt: ms(p.created_at)
+        id: p.id, title: p.title, version: p.version, effectiveDate: p.effective_date, approvedBy: p.approved_by, category: p.category, summary: p.summary, sourceUrl: p.source_url || "", createdAt: ms(p.created_at)
       })),
       settings: {
         _id: st.id || "default",
