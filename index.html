@@ -8,6 +8,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
 <style>*,:after,:before{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgba(59,130,246,.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }::backdrop{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgba(59,130,246,.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }/*! tailwindcss v3.4.17 | MIT License | https://tailwindcss.com*/*,:after,:before{box-sizing:border-box;border:0 solid #E5E5E5}:after,:before{--tw-content:""}:host,html{line-height:1.5;-webkit-text-size-adjust:100%;-moz-tab-size:4;-o-tab-size:4;tab-size:4;font-family:Poppins,ui-sans-serif,sans-serif;font-feature-settings:normal;font-variation-settings:normal;-webkit-tap-highlight-color:transparent}body{margin:0;line-height:inherit}hr{height:0;color:inherit;border-top-width:1px}abbr:where([title]){-webkit-text-decoration:underline dotted;text-decoration:underline dotted}h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit}a{color:inherit;text-decoration:inherit}b,strong{font-weight:bolder}code,kbd,pre,samp{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,Liberation Mono,Courier New,monospace;font-feature-settings:normal;font-variation-settings:normal;font-size:1em}small{font-size:80%}sub,sup{font-size:75%;line-height:0;position:relative;vertical-align:baseline}sub{bottom:-.25em}sup{top:-.5em}table{text-indent:0;border-color:inherit;border-collapse:collapse}button,input,optgroup,select,textarea{font-family:inherit;font-feature-settings:inherit;font-variation-settings:inherit;font-size:100%;font-weight:inherit;line-height:inherit;letter-spacing:inherit;color:inherit;margin:0;padding:0}button,select{text-transform:none}button,input:where([type=button]),input:where([type=reset]),input:where([type=submit]){-webkit-appearance:button;background-color:transparent;background-image:none}:-moz-focusring{outline:auto}:-moz-ui-invalid{box-shadow:none}progress{vertical-align:baseline}::-webkit-inner-spin-button,::-webkit-outer-spin-button{height:auto}[type=search]{-webkit-appearance:textfield;outline-offset:-2px}::-webkit-search-decoration{-webkit-appearance:none}::-webkit-file-upload-button{-webkit-appearance:button;font:inherit}summary{display:list-item}blockquote,dd,dl,figure,h1,h2,h3,h4,h5,h6,hr,p,pre{margin:0}fieldset{margin:0}fieldset,legend{padding:0}menu,ol,ul{list-style:none;margin:0;padding:0}dialog{padding:0}textarea{resize:vertical}input::-moz-placeholder,textarea::-moz-placeholder{opacity:1;color:#999999}input::placeholder,textarea::placeholder{opacity:1;color:#999999}[role=button],button{cursor:pointer}:disabled{cursor:default}audio,canvas,embed,iframe,img,object,svg,video{display:block;vertical-align:middle}img,video{max-width:100%;height:auto}[hidden]:where(:not([hidden=until-found])){display:none}.fixed{position:fixed}.absolute{position:absolute}.relative{position:relative}.sticky{position:sticky}.inset-0{inset:0}.-left-4{left:-1rem}.-left-\[11px\]{left:-11px}.-right-6{right:-1.5rem}.-right-8{right:-2rem}.-top-6{top:-1.5rem}.-top-8{top:-2rem}.bottom-0{bottom:0}.left-0{left:0}.right-0{right:0}.right-1{right:.25rem}.top-0{top:0}.top-1{top:.25rem}.top-1\/2{top:50%}.top-3{top:.75rem}.z-20{z-index:20}.z-30{z-index:30}.z-40{z-index:40}.mb-0\.5{margin-bottom:.125rem}.mb-1{margin-bottom:.25rem}.mb-2{margin-bottom:.5rem}.mb-2\.5{margin-bottom:.625rem}.mb-3{margin-bottom:.75rem}.mb-4{margin-bottom:1rem}.mt-0\.5{margin-top:.125rem}.mt-1{margin-top:.25rem}.mt-2{margin-top:.5rem}.mt-3{margin-top:.75rem}.mt-4{margin-top:1rem}.block{display:block}.inline-block{display:inline-block}.inline{display:inline}.flex{display:flex}.inline-flex{display:inline-flex}.table{display:table}.grid{display:grid}.hidden{display:none}.h-1{height:.25rem}.h-10{height:2.5rem}.h-14{height:3.5rem}.h-16{height:4rem}.h-2{height:.5rem}.h-2\.5{height:.625rem}.h-24{height:6rem}.h-4{height:1rem}.h-5{height:1.25rem}.h-6{height:1.5rem}.h-7{height:1.75rem}.h-9{height:2.25rem}.h-full{height:100%}.max-h-80{max-height:20rem}.max-h-\[55vh\]{max-height:55vh}.max-h-\[90vh\]{max-height:90vh}.min-h-\[200px\]{min-height:200px}.min-h-screen{min-height:100vh}.w-1{width:.25rem}.w-1\/4{width:25%}.w-10{width:2.5rem}.w-16{width:4rem}.w-2{width:.5rem}.w-2\.5{width:.625rem}.w-24{width:6rem}.w-28{width:7rem}.w-32{width:8rem}.w-4{width:1rem}.w-56{width:14rem}.w-6{width:1.5rem}.w-60{width:15rem}.w-7{width:1.75rem}.w-9{width:2.25rem}.w-96{width:24rem}.w-full{width:100%}.w-px{width:1px}.min-w-0{min-width:0}.min-w-4{min-width:1rem}.min-w-\[18px\]{min-width:18px}.max-w-2xl{max-width:42rem}.max-w-3xl{max-width:48rem}.max-w-4xl{max-width:56rem}.max-w-5xl{max-width:64rem}.max-w-6xl{max-width:72rem}.max-w-\[200px\]{max-width:200px}.max-w-md{max-width:28rem}.flex-1{flex:1 1 0%}.shrink-0{flex-shrink:0}.-translate-y-1\/2{--tw-translate-y:-50%;transform:translate(var(--tw-translate-x),var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))}.cursor-pointer{cursor:pointer}.grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}.grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}.grid-cols-5{grid-template-columns:repeat(5,minmax(0,1fr))}.flex-col{flex-direction:column}.flex-wrap{flex-wrap:wrap}.place-items-center{place-items:center}.items-start{align-items:flex-start}.items-center{align-items:center}.justify-end{justify-content:flex-end}.justify-center{justify-content:center}.justify-between{justify-content:space-between}.gap-1{gap:.25rem}.gap-1\.5{gap:.375rem}.gap-2{gap:.5rem}.gap-2\.5{gap:.625rem}.gap-3{gap:.75rem}.gap-4{gap:1rem}.gap-5{gap:1.25rem}.gap-x-6{-moz-column-gap:1.5rem;column-gap:1.5rem}.gap-x-8{-moz-column-gap:2rem;column-gap:2rem}.gap-y-1\.5{row-gap:.375rem}.gap-y-3{row-gap:.75rem}.space-y-1\.5>:not([hidden])~:not([hidden]){--tw-space-y-reverse:0;margin-top:calc(.375rem*(1 - var(--tw-space-y-reverse)));margin-bottom:calc(.375rem*var(--tw-space-y-reverse))}.space-y-2>:not([hidden])~:not([hidden]){--tw-space-y-reverse:0;margin-top:calc(.5rem*(1 - var(--tw-space-y-reverse)));margin-bottom:calc(.5rem*var(--tw-space-y-reverse))}.space-y-2\.5>:not([hidden])~:not([hidden]){--tw-space-y-reverse:0;margin-top:calc(.625rem*(1 - var(--tw-space-y-reverse)));margin-bottom:calc(.625rem*var(--tw-space-y-reverse))}.space-y-3>:not([hidden])~:not([hidden]){--tw-space-y-reverse:0;margin-top:calc(.75rem*(1 - var(--tw-space-y-reverse)));margin-bottom:calc(.75rem*var(--tw-space-y-reverse))}.space-y-4>:not([hidden])~:not([hidden]){--tw-space-y-reverse:0;margin-top:calc(1rem*(1 - var(--tw-space-y-reverse)));margin-bottom:calc(1rem*var(--tw-space-y-reverse))}.space-y-5>:not([hidden])~:not([hidden]){--tw-space-y-reverse:0;margin-top:calc(1.25rem*(1 - var(--tw-space-y-reverse)));margin-bottom:calc(1.25rem*var(--tw-space-y-reverse))}.divide-y>:not([hidden])~:not([hidden]){--tw-divide-y-reverse:0;border-top-width:calc(1px*(1 - var(--tw-divide-y-reverse)));border-bottom-width:calc(1px*var(--tw-divide-y-reverse))}.divide-neutral-100>:not([hidden])~:not([hidden]){--tw-divide-opacity:1;border-color:rgb(245 245 245/var(--tw-divide-opacity,1))}.divide-neutral-50>:not([hidden])~:not([hidden]){--tw-divide-opacity:1;border-color:rgb(250 250 250/var(--tw-divide-opacity,1))}.overflow-auto{overflow:auto}.overflow-hidden,.truncate{overflow:hidden}.truncate{text-overflow:ellipsis}.truncate,.whitespace-nowrap{white-space:nowrap}.rounded{border-radius:.25rem}.rounded-2xl{border-radius:1rem}.rounded-full{border-radius:9999px}.rounded-lg{border-radius:.5rem}.rounded-xl{border-radius:.75rem}.rounded-r{border-top-right-radius:.25rem;border-bottom-right-radius:.25rem}.rounded-t-lg{border-top-left-radius:.5rem;border-top-right-radius:.5rem}.border{border-width:1px}.border-b{border-bottom-width:1px}.border-t{border-top-width:1px}.border-t-2{border-top-width:2px}.border-black\/5{border-color:rgba(0,0,0,.05)}.border-neutral-100{--tw-border-opacity:1;border-color:rgb(242 242 242/var(--tw-border-opacity,1))}.border-neutral-200{--tw-border-opacity:1;border-color:rgb(229 229 229/var(--tw-border-opacity,1))}.border-white\/10{border-color:hsla(0,0%,100%,.1)}.bg-\[\#0B0B0C\]{--tw-bg-opacity:1;background-color:rgb(0 0 0/var(--tw-bg-opacity,1))}.bg-amber-100{--tw-bg-opacity:1;background-color:rgb(253 238 217/var(--tw-bg-opacity,1))}.bg-amber-50{--tw-bg-opacity:1;background-color:rgb(254 248 240/var(--tw-bg-opacity,1))}.bg-amber-500{--tw-bg-opacity:1;background-color:rgb(244 139 0/var(--tw-bg-opacity,1))}.bg-black\/40{background-color:rgba(0,0,0,.4)}.bg-blue-50{--tw-bg-opacity:1;background-color:rgb(242 250 254/var(--tw-bg-opacity,1))}.bg-cyan-50{--tw-bg-opacity:1;background-color:rgb(240 253 253/var(--tw-bg-opacity,1))}.bg-cyan-600{--tw-bg-opacity:1;background-color:rgb(0 202 202/var(--tw-bg-opacity,1))}.bg-emerald-100{--tw-bg-opacity:1;background-color:rgb(217 250 236/var(--tw-bg-opacity,1))}.bg-emerald-50{--tw-bg-opacity:1;background-color:rgb(240 253 248/var(--tw-bg-opacity,1))}.bg-emerald-500{--tw-bg-opacity:1;background-color:rgb(0 220 130/var(--tw-bg-opacity,1))}.bg-emerald-600{--tw-bg-opacity:1;background-color:rgb(0 194 114/var(--tw-bg-opacity,1))}.bg-neutral-100{--tw-bg-opacity:1;background-color:rgb(242 242 242/var(--tw-bg-opacity,1))}.bg-neutral-200{--tw-bg-opacity:1;background-color:rgb(229 229 229/var(--tw-bg-opacity,1))}.bg-neutral-300{--tw-bg-opacity:1;background-color:rgb(204 204 204/var(--tw-bg-opacity,1))}.bg-neutral-50{--tw-bg-opacity:1;background-color:rgb(255 255 255/var(--tw-bg-opacity,1))}.bg-neutral-50\/70{background-color:hsla(0,0%,95%,.7)}.bg-neutral-900{--tw-bg-opacity:1;background-color:rgb(25 25 25/var(--tw-bg-opacity,1))}.bg-rose-100{--tw-bg-opacity:1;background-color:rgb(255 232 227/var(--tw-bg-opacity,1))}.bg-rose-50{--tw-bg-opacity:1;background-color:rgb(255 246 244/var(--tw-bg-opacity,1))}.bg-rose-500{--tw-bg-opacity:1;background-color:rgb(255 100 70/var(--tw-bg-opacity,1))}.bg-rose-600{--tw-bg-opacity:1;background-color:rgb(224 88 62/var(--tw-bg-opacity,1))}.bg-transparent{background-color:transparent}.bg-violet-50{--tw-bg-opacity:1;background-color:rgb(255 247 249/var(--tw-bg-opacity,1))}.bg-white{--tw-bg-opacity:1;background-color:rgb(255 255 255/var(--tw-bg-opacity,1))}.bg-white\/60{background-color:hsla(0,0%,100%,.6)}.bg-white\/80{background-color:hsla(0,0%,100%,.8)}.p-2{padding:.5rem}.p-2\.5{padding:.625rem}.p-3{padding:.75rem}.p-4{padding:1rem}.p-5{padding:1.25rem}.p-6{padding:1.5rem}.p-8{padding:2rem}.px-1{padding-left:.25rem;padding-right:.25rem}.px-1\.5{padding-left:.375rem;padding-right:.375rem}.px-2{padding-left:.5rem;padding-right:.5rem}.px-2\.5{padding-left:.625rem;padding-right:.625rem}.px-3{padding-left:.75rem;padding-right:.75rem}.px-3\.5{padding-left:.875rem;padding-right:.875rem}.px-4{padding-left:1rem;padding-right:1rem}.px-5{padding-left:1.25rem;padding-right:1.25rem}.px-6{padding-left:1.5rem;padding-right:1.5rem}.py-0\.5{padding-top:.125rem;padding-bottom:.125rem}.py-1{padding-top:.25rem;padding-bottom:.25rem}.py-1\.5{padding-top:.375rem;padding-bottom:.375rem}.py-10{padding-top:2.5rem;padding-bottom:2.5rem}.py-2{padding-top:.5rem;padding-bottom:.5rem}.py-2\.5{padding-top:.625rem;padding-bottom:.625rem}.py-3{padding-top:.75rem;padding-bottom:.75rem}.py-4{padding-top:1rem;padding-bottom:1rem}.py-5{padding-top:1.25rem;padding-bottom:1.25rem}.py-6{padding-top:1.5rem;padding-bottom:1.5rem}.py-8{padding-top:2rem;padding-bottom:2rem}.pb-1{padding-bottom:.25rem}.pb-4{padding-bottom:1rem}.pl-4{padding-left:1rem}.pt-1{padding-top:.25rem}.pt-3{padding-top:.75rem}.text-left{text-align:left}.text-center{text-align:center}.text-right{text-align:right}.font-display{font-family:Poppins,ui-sans-serif,sans-serif}.text-2xl{font-size:1.5rem;line-height:2rem}.text-3xl{font-size:1.875rem;line-height:2.25rem}.text-\[10px\]{font-size:10px}.text-\[11px\]{font-size:11px}.text-\[12px\]{font-size:12px}.text-\[13px\]{font-size:13px}.text-\[15px\]{font-size:15px}.text-lg{font-size:1.125rem;line-height:1.75rem}.text-sm{font-size:.875rem;line-height:1.25rem}.text-xl{font-size:1.25rem;line-height:1.75rem}.text-xs{font-size:.75rem;line-height:1rem}.font-bold{font-weight:700}.font-medium{font-weight:500}.font-normal{font-weight:400}.font-semibold{font-weight:600}.uppercase{text-transform:uppercase}.capitalize{text-transform:capitalize}.italic{font-style:italic}.leading-snug{line-height:1.375}.leading-tight{line-height:1.25}.tracking-tight{letter-spacing:-.025em}.tracking-wide{letter-spacing:.025em}.tracking-widest{letter-spacing:.1em}.text-amber-600{--tw-text-opacity:1;color:rgb(215 122 0/var(--tw-text-opacity,1))}.text-amber-700{--tw-text-opacity:1;color:rgb(176 100 0/var(--tw-text-opacity,1))}.text-amber-800{--tw-text-opacity:1;color:rgb(142 81 0/var(--tw-text-opacity,1))}.text-black{--tw-text-opacity:1;color:rgb(0 0 0/var(--tw-text-opacity,1))}.text-blue-600{--tw-text-opacity:1;color:rgb(35 150 211/var(--tw-text-opacity,1))}.text-blue-700{--tw-text-opacity:1;color:rgb(29 122 173/var(--tw-text-opacity,1))}.text-cyan-700{--tw-text-opacity:1;color:rgb(0 165 165/var(--tw-text-opacity,1))}.text-emerald-500{--tw-text-opacity:1;color:rgb(0 220 130/var(--tw-text-opacity,1))}.text-emerald-600{--tw-text-opacity:1;color:rgb(0 194 114/var(--tw-text-opacity,1))}.text-emerald-700{--tw-text-opacity:1;color:rgb(0 158 94/var(--tw-text-opacity,1))}.text-neutral-300{--tw-text-opacity:1;color:rgb(204 204 204/var(--tw-text-opacity,1))}.text-neutral-400{--tw-text-opacity:1;color:rgb(178 178 178/var(--tw-text-opacity,1))}.text-neutral-500{--tw-text-opacity:1;color:rgb(153 153 153/var(--tw-text-opacity,1))}.text-neutral-600{--tw-text-opacity:1;color:rgb(127 127 127/var(--tw-text-opacity,1))}.text-neutral-700{--tw-text-opacity:1;color:rgb(102 102 102/var(--tw-text-opacity,1))}.text-neutral-800{--tw-text-opacity:1;color:rgb(76 76 76/var(--tw-text-opacity,1))}.text-neutral-900{--tw-text-opacity:1;color:rgb(25 25 25/var(--tw-text-opacity,1))}.text-rose-400{--tw-text-opacity:1;color:rgb(255 143 122/var(--tw-text-opacity,1))}.text-rose-500{--tw-text-opacity:1;color:rgb(255 100 70/var(--tw-text-opacity,1))}.text-rose-600{--tw-text-opacity:1;color:rgb(224 88 62/var(--tw-text-opacity,1))}.text-rose-700{--tw-text-opacity:1;color:rgb(184 72 50/var(--tw-text-opacity,1))}.text-violet-700{--tw-text-opacity:1;color:rgb(180 86 114/var(--tw-text-opacity,1))}.text-white{--tw-text-opacity:1;color:rgb(255 255 255/var(--tw-text-opacity,1))}.underline{text-decoration-line:underline}.line-through{text-decoration-line:line-through}.decoration-neutral-300{text-decoration-color:#CCCCCC}.opacity-20{opacity:.2}.opacity-30{opacity:.3}.opacity-60{opacity:.6}.shadow-2xl{--tw-shadow:0 25px 50px -12px rgba(0,0,0,.25);--tw-shadow-colored:0 25px 50px -12px var(--tw-shadow-color)}.shadow-2xl,.shadow-sm{box-shadow:var(--tw-ring-offset-shadow,0 0 #0000),var(--tw-ring-shadow,0 0 #0000),var(--tw-shadow)}.shadow-sm{--tw-shadow:0 1px 2px 0 rgba(0,0,0,.05);--tw-shadow-colored:0 1px 2px 0 var(--tw-shadow-color)}.shadow-xl{--tw-shadow:0 20px 25px -5px rgba(0,0,0,.1),0 8px 10px -6px rgba(0,0,0,.1);--tw-shadow-colored:0 20px 25px -5px var(--tw-shadow-color),0 8px 10px -6px var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow,0 0 #0000),var(--tw-ring-shadow,0 0 #0000),var(--tw-shadow)}.ring-1{--tw-ring-offset-shadow:var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);--tw-ring-shadow:var(--tw-ring-inset) 0 0 0 calc(1px + var(--tw-ring-offset-width)) var(--tw-ring-color);box-shadow:var(--tw-ring-offset-shadow),var(--tw-ring-shadow),var(--tw-shadow,0 0 #0000)}.ring-inset{--tw-ring-inset:inset}.ring-amber-200{--tw-ring-opacity:1;--tw-ring-color:rgb(251 218 173/var(--tw-ring-opacity,1))}.ring-black\/10{--tw-ring-color:rgba(0,0,0,.1)}.ring-black\/5{--tw-ring-color:rgba(0,0,0,.05)}.ring-blue-200{--tw-ring-opacity:1;--tw-ring-color:rgb(186 228 250/var(--tw-ring-opacity,1))}.ring-cyan-200{--tw-ring-opacity:1;--tw-ring-color:rgb(173 247 247/var(--tw-ring-opacity,1))}.ring-emerald-200{--tw-ring-opacity:1;--tw-ring-color:rgb(173 244 215/var(--tw-ring-opacity,1))}.ring-neutral-200{--tw-ring-opacity:1;--tw-ring-color:rgb(229 229 229/var(--tw-ring-opacity,1))}.ring-neutral-900{--tw-ring-opacity:1;--tw-ring-color:rgb(25 25 25/var(--tw-ring-opacity,1))}.ring-rose-200{--tw-ring-opacity:1;--tw-ring-color:rgb(255 205 196/var(--tw-ring-opacity,1))}.ring-violet-200{--tw-ring-opacity:1;--tw-ring-color:rgb(253 212 224/var(--tw-ring-opacity,1))}.blur-2xl{--tw-blur:blur(40px)}.blur-2xl,.blur-xl{filter:var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow)}.blur-xl{--tw-blur:blur(24px)}.filter{filter:var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow)}.backdrop-blur{--tw-backdrop-blur:blur(8px);-webkit-backdrop-filter:var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);backdrop-filter:var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia)}.transition{transition-property:color,background-color,border-color,text-decoration-color,fill,stroke,opacity,box-shadow,transform,filter,-webkit-backdrop-filter;transition-property:color,background-color,border-color,text-decoration-color,fill,stroke,opacity,box-shadow,transform,filter,backdrop-filter;transition-property:color,background-color,border-color,text-decoration-color,fill,stroke,opacity,box-shadow,transform,filter,backdrop-filter,-webkit-backdrop-filter;transition-timing-function:cubic-bezier(.4,0,.2,1);transition-duration:.15s}:root{--iris:linear-gradient(115deg,#28AAF0,#00E5E5 50%,#00DC82)}body,html{font-family:Poppins,ui-sans-serif,system-ui,sans-serif;margin:0;background:#F2F2F2}.font-display{font-family:Poppins,sans-serif}.iris,.iris-text{background:var(--iris)}.iris-text{-webkit-background-clip:text;background-clip:text;color:transparent}.iris-ring{position:relative}::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:#CCCCCC;border-radius:9px}.hover\:border-neutral-300:hover{--tw-border-opacity:1;border-color:rgb(204 204 204/var(--tw-border-opacity,1))}.hover\:bg-cyan-700:hover{--tw-bg-opacity:1;background-color:rgb(0 165 165/var(--tw-bg-opacity,1))}.hover\:bg-emerald-700:hover{--tw-bg-opacity:1;background-color:rgb(0 158 94/var(--tw-bg-opacity,1))}.hover\:bg-neutral-100:hover{--tw-bg-opacity:1;background-color:rgb(242 242 242/var(--tw-bg-opacity,1))}.hover\:bg-neutral-50:hover{--tw-bg-opacity:1;background-color:rgb(255 255 255/var(--tw-bg-opacity,1))}.hover\:bg-neutral-50\/60:hover{background-color:hsla(0,0%,95%,.6)}.hover\:bg-neutral-700:hover{--tw-bg-opacity:1;background-color:rgb(102 102 102/var(--tw-bg-opacity,1))}.hover\:bg-rose-50:hover{--tw-bg-opacity:1;background-color:rgb(255 246 244/var(--tw-bg-opacity,1))}.hover\:bg-rose-700:hover{--tw-bg-opacity:1;background-color:rgb(184 72 50/var(--tw-bg-opacity,1))}.hover\:text-black:hover{--tw-text-opacity:1;color:rgb(0 0 0/var(--tw-text-opacity,1))}.hover\:text-neutral-200:hover{--tw-text-opacity:1;color:rgb(229 229 229/var(--tw-text-opacity,1))}.hover\:text-neutral-600:hover{--tw-text-opacity:1;color:rgb(127 127 127/var(--tw-text-opacity,1))}.hover\:text-neutral-700:hover{--tw-text-opacity:1;color:rgb(102 102 102/var(--tw-text-opacity,1))}.hover\:text-neutral-800:hover{--tw-text-opacity:1;color:rgb(76 76 76/var(--tw-text-opacity,1))}.hover\:text-neutral-900:hover{--tw-text-opacity:1;color:rgb(25 25 25/var(--tw-text-opacity,1))}.hover\:text-rose-600:hover{--tw-text-opacity:1;color:rgb(224 88 62/var(--tw-text-opacity,1))}.hover\:underline:hover{text-decoration-line:underline}.hover\:ring-black\/10:hover{--tw-ring-color:rgba(0,0,0,.1)}.hover\:brightness-95:hover{--tw-brightness:brightness(.95);filter:var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow)}.focus\:border-neutral-400:focus{--tw-border-opacity:1;border-color:rgb(178 178 178/var(--tw-border-opacity,1))}.focus\:outline-none:focus{outline:2px solid transparent;outline-offset:2px}.focus\:ring-2:focus{--tw-ring-offset-shadow:var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);--tw-ring-shadow:var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color);box-shadow:var(--tw-ring-offset-shadow),var(--tw-ring-shadow),var(--tw-shadow,0 0 #0000)}.focus\:ring-neutral-900\/10:focus{--tw-ring-color:hsla(0,0%,9%,.1)}.disabled\:opacity-40:disabled{opacity:.4}@media (min-width:768px){.md\:grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}.md\:grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}.md\:grid-cols-4{grid-template-columns:repeat(4,minmax(0,1fr))}.md\:grid-cols-5{grid-template-columns:repeat(5,minmax(0,1fr))}.md\:grid-cols-6{grid-template-columns:repeat(6,minmax(0,1fr))}.md\:text-3xl{font-size:1.875rem;line-height:2.25rem}}@media (min-width:1024px){.lg\:grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}.lg\:grid-cols-4{grid-template-columns:repeat(4,minmax(0,1fr))}}</style></head>
 <body><div id="root"></div>
 <script>/**
@@ -2090,6 +2091,12 @@ function seed() {
     costRequests: [],
     costQuestions: [],
     costSettlements: [],
+    salesBudgetLines: [],
+    salesKpiSummary: null,
+    salesRevenueByFy: [],
+    salesTopClients: [],
+    salesProductType: [],
+    salesIndustryActual: [],
     settings: {
       webhookUrl: "https://hook.us2.make.com/bsh3fl3qco185yg6nqm1k27dd14gcj19",
       emailEnabled: true,
@@ -2675,6 +2682,343 @@ function FinanceTurnaround({
     className: "text-[11px] text-neutral-400"
   }, "Source: ", latest.source, ". Status and current-value fields are editable here and sync live to Supabase (fin_snapshots / action_items) — add a new period row directly in Supabase once management accounts close each quarter."));
 }
+
+/* ================= Company Sales Performance Overview =================
+   Source: Revenue.xlsx ("Sales target" Budget table + "Dashboard" sheet), imported 2026-08-26.
+   Budget (sales_budget_lines) is now the live, editable source of truth here -- no longer
+   maintained in Excel. The historical KPI/top-client/product-mix/revenue-by-FY figures are
+   periodic snapshots (same pattern as fin_snapshots) refreshed when new Excel/CRM data lands. */
+const SALES_SEGMENTS = ["Experience", "Finance", "Insight Velocity", "Education"];
+const SALES_CATEGORIES = ["Custom tracker", "Ad hoc", "Data Product", "Data Product Others"];
+const SALES_MONTHS = ["2026-07-01", "2026-08-01", "2026-09-01", "2026-10-01", "2026-11-01", "2026-12-01", "2027-01-01", "2027-02-01", "2027-03-01", "2027-04-01", "2027-05-01", "2027-06-01"];
+const SALES_MONTH_LABELS = ["Jul'26", "Aug'26", "Sep'26", "Oct'26", "Nov'26", "Dec'26", "Jan'27", "Feb'27", "Mar'27", "Apr'27", "May'27", "Jun'27"];
+const SALES_SEGMENT_COLOR = {
+  "Experience": "#28AAF0",
+  "Finance": "#00E5E5",
+  "Insight Velocity": "#00DC82",
+  "Education": "#FA789F"
+};
+const SALES_CATEGORY_COLOR = {
+  "Ad Hoc": "#28AAF0",
+  "Custom Tracker": "#00DC82",
+  "Data Product": "#F48B00",
+  "Data Product Others": "#FA789F"
+};
+const salesBudgetLineId = (segment, month, category) => `${segment.toLowerCase().replace(/ /g, "_")}_${month}_${category.toLowerCase().replace(/ /g, "_")}`;
+
+function ChartBox({
+  type,
+  data,
+  options,
+  height
+}) {
+  const E = React.createElement;
+  const ref = useRef(null);
+  const chartRef = useRef(null);
+  useEffect(() => {
+    if (!ref.current || typeof Chart === "undefined") return;
+    chartRef.current = new Chart(ref.current, {
+      type: type,
+      data: data,
+      options: Object.assign({
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            labels: {
+              font: { size: 11 },
+              boxWidth: 10
+            }
+          }
+        }
+      }, options || {})
+    });
+    return () => {
+      if (chartRef.current) chartRef.current.destroy();
+    };
+  }, [JSON.stringify(data), JSON.stringify(options), type]);
+  return E("div", { style: { height: height || 260 } }, E("canvas", { ref: ref }));
+}
+
+function SalesPerformanceV({ db, update, role }) {
+  const E = React.createElement;
+  const editable = ["admin", "ceo", "finance_director"].includes(role);
+  const lines = db.salesBudgetLines || [];
+  const kpi = db.salesKpiSummary;
+  const byFy = [...(db.salesRevenueByFy || [])].sort((a, b) => a.sortOrder - b.sortOrder);
+  const clients = [...(db.salesTopClients || [])].sort((a, b) => a.rank - b.rank);
+  const prodType = db.salesProductType || [];
+  const industry = db.salesIndustryActual || [];
+
+  const amountFor = (segment, month, category) => {
+    const row = lines.find(l => l.segment === segment && l.month === month && l.category === category);
+    return row ? row.amount : 0;
+  };
+  const segmentTotal = segment => lines.filter(l => l.segment === segment).reduce((s, l) => s + l.amount, 0);
+  const segmentMonthTotal = (segment, month) => SALES_CATEGORIES.reduce((s, c) => s + amountFor(segment, month, c), 0);
+  const companyTotal = lines.reduce((s, l) => s + l.amount, 0);
+  const companyMonthTotal = month => SALES_SEGMENTS.reduce((s, seg) => s + segmentMonthTotal(seg, month), 0);
+  const targetForSegment = segment => segmentTotal(segment);
+  const pctOf = (a, b) => (b ? a / b : 0);
+
+  const saveCell = (segment, month, category, amount) => update(next => {
+    const id = salesBudgetLineId(segment, month, category);
+    const arr = next.salesBudgetLines || (next.salesBudgetLines = []);
+    const i = arr.findIndex(l => l.id === id);
+    if (i >= 0) {
+      arr[i] = Object.assign({}, arr[i], { amount: amount });
+    } else {
+      arr.push({ id: id, segment: segment, month: month, category: category, amount: amount });
+    }
+  });
+
+  const Kpi = (props) => E("div", {
+    className: "bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-4 relative overflow-hidden"
+  },
+    E("div", { className: "text-[11px] uppercase tracking-wide text-neutral-400 font-medium" }, props.l),
+    E("div", {
+      className: "font-display text-xl md:text-2xl mt-1 tracking-tight " + (props.flag === "bad" ? "text-rose-600" : props.flag === "good" ? "text-emerald-600" : "text-neutral-900"),
+      style: { fontWeight: 800 }
+    }, props.v),
+    E("div", { className: "text-[11px] text-neutral-400 mt-0.5" }, props.s)
+  );
+
+  const industryRows = industry.map(i => ({
+    industry: i.industry,
+    actual: i.actualFy2627,
+    target: targetForSegment(i.segment)
+  }));
+  const companyActual = industryRows.reduce((s, r) => s + r.actual, 0);
+  const companyTarget = companyTotal;
+
+  const SectionLabel = (t) => E("div", {
+    className: "text-[11px] uppercase tracking-widest text-neutral-400 mb-2 font-medium"
+  }, t);
+
+  const BarCell = (pct) => E("div", { className: "h-2 rounded-full bg-neutral-100 overflow-hidden" },
+    E("div", {
+      className: "h-full rounded-full",
+      style: { width: (Math.min(pct, 1) * 100) + "%", background: "#1D7AAD" }
+    })
+  );
+
+  /* ---- KPI band ---- */
+  const kpiBand = kpi ? E("div", { className: "grid grid-cols-2 lg:grid-cols-4 gap-4" },
+    E(Kpi, { l: "Total revenue (5FY)", v: money(kpi.totalRevenue5fy), s: kpi.asOfLabel }),
+    E(Kpi, { l: "FY26/27 revenue", v: money(kpi.revenueFy2627), s: "vs " + money(kpi.revenueFy2526) + " FY25/26" }),
+    E(Kpi, {
+      l: "YoY growth",
+      v: (kpi.growthPct >= 0 ? "+" : "") + kpi.growthPct.toFixed(1) + "%",
+      s: "FY26/27 vs FY25/26",
+      flag: kpi.growthPct < 0 ? "bad" : "good"
+    }),
+    E(Kpi, { l: "Projects (5FY)", v: kpi.totalProjects5fy, s: "active projects, all years" }),
+    E(Kpi, { l: "FY26/27 target", v: money(companyTarget), s: "live — sum of Budget table below" }),
+    E(Kpi, {
+      l: "% of target",
+      v: companyTarget ? (pctOf(kpi.revenueFy2627, companyTarget) * 100).toFixed(1) + "%" : "—",
+      s: "FY26/27 revenue vs target",
+      flag: pctOf(kpi.revenueFy2627, companyTarget) < 0.8 ? "bad" : "good"
+    }),
+    E(Kpi, {
+      l: "Company total (YTD FY26/27)",
+      v: money(companyActual),
+      s: companyTarget ? (pctOf(companyActual, companyTarget) * 100).toFixed(1) + "% of target" : "—",
+      flag: pctOf(companyActual, companyTarget) < 0.8 ? "bad" : "good"
+    })
+  ) : null;
+
+  /* ---- Chart row 1 ---- */
+  const chartRow1 = E("div", { className: "grid lg:grid-cols-2 gap-5" },
+    E(Card, { className: "p-5" },
+      E("div", { className: "font-display text-sm uppercase tracking-wide mb-3", style: { fontWeight: 700 } }, "Revenue by fiscal year (last 5FY)"),
+      E(ChartBox, {
+        type: "bar",
+        data: {
+          labels: byFy.map(f => f.fiscalYear),
+          datasets: [{ label: "Revenue", data: byFy.map(f => f.revenue), backgroundColor: "#1D7AAD", borderRadius: 4 }]
+        },
+        options: {
+          plugins: { legend: { display: false } },
+          scales: { y: { ticks: { callback: v => "$" + (v / 1000).toFixed(0) + "K" } } }
+        }
+      })
+    ),
+    E(Card, { className: "p-5" },
+      E("div", { className: "font-display text-sm uppercase tracking-wide mb-3", style: { fontWeight: 700 } }, "Revenue by product type (FY26/27)"),
+      E(ChartBox, {
+        type: "doughnut",
+        data: {
+          labels: prodType.map(p => p.productType),
+          datasets: [{ data: prodType.map(p => p.revenueFy2627), backgroundColor: prodType.map(p => SALES_CATEGORY_COLOR[p.productType] || "#999") }]
+        },
+        options: { plugins: { legend: { position: "bottom" } } }
+      })
+    )
+  );
+
+  /* ---- Chart row 2 ---- */
+  const chartRow2 = E("div", { className: "grid lg:grid-cols-2 gap-5" },
+    E(Card, { className: "p-5" },
+      E("div", { className: "font-display text-sm uppercase tracking-wide mb-3", style: { fontWeight: 700 } }, "Top 10 clients by revenue (FY26/27)"),
+      E(ChartBox, {
+        type: "bar",
+        data: {
+          labels: clients.map(c => c.client),
+          datasets: [{ label: "FY26/27 revenue", data: clients.map(c => c.revenueFy2627), backgroundColor: "#00A5A5", borderRadius: 4 }]
+        },
+        options: {
+          indexAxis: "y",
+          plugins: { legend: { display: false } },
+          scales: { x: { ticks: { callback: v => "$" + (v / 1000).toFixed(0) + "K" } } }
+        },
+        height: 300
+      })
+    ),
+    E(Card, { className: "p-5" },
+      E("div", { className: "font-display text-sm uppercase tracking-wide mb-3", style: { fontWeight: 700 } }, "FY26/27 revenue by industry: actual vs target"),
+      E(ChartBox, {
+        type: "bar",
+        data: {
+          labels: industryRows.map(r => r.industry).concat(["Company Total"]),
+          datasets: [
+            { label: "Actual", data: industryRows.map(r => r.actual).concat([companyActual]), backgroundColor: "#17638B", borderRadius: 4 },
+            { label: "Target", data: industryRows.map(r => r.target).concat([companyTarget]), backgroundColor: "#F9C37A", borderRadius: 4 }
+          ]
+        },
+        options: { scales: { y: { ticks: { callback: v => "$" + (v / 1000).toFixed(0) + "K" } } } },
+        height: 300
+      })
+    )
+  );
+
+  /* ---- Industry table ---- */
+  const industryDataRows = industryRows.map(r => E("tr", { key: r.industry },
+    E("td", { className: "px-4 py-2.5 text-neutral-700" }, r.industry),
+    E("td", { className: "px-4 py-2.5 text-right text-neutral-900" }, money(r.actual)),
+    E("td", { className: "px-4 py-2.5 text-right text-neutral-500" }, money(r.target)),
+    E("td", { className: "px-4 py-2.5 text-right font-semibold " + (pctOf(r.actual, r.target) < 0.8 ? "text-rose-600" : "text-emerald-600") },
+      r.target ? (pctOf(r.actual, r.target) * 100).toFixed(1) + "%" : "—"),
+    E("td", { className: "px-4 py-2.5" }, BarCell(pctOf(r.actual, r.target)))
+  ));
+  const industryTotalRow = E("tr", { key: "company_total", className: "bg-neutral-50/70 font-semibold" },
+    E("td", { className: "px-4 py-2.5 text-neutral-900" }, "Company Total"),
+    E("td", { className: "px-4 py-2.5 text-right text-neutral-900" }, money(companyActual)),
+    E("td", { className: "px-4 py-2.5 text-right text-neutral-700" }, money(companyTarget)),
+    E("td", { className: "px-4 py-2.5 text-right " + (pctOf(companyActual, companyTarget) < 0.8 ? "text-rose-600" : "text-emerald-600") },
+      companyTarget ? (pctOf(companyActual, companyTarget) * 100).toFixed(1) + "%" : "—"),
+    E("td", { className: "px-4 py-2.5" }, BarCell(pctOf(companyActual, companyTarget)))
+  );
+  const industryTable = E(Card, { className: "overflow-hidden" },
+    E("div", { className: "px-5 py-3 border-b border-neutral-100 font-display text-sm uppercase tracking-wide", style: { fontWeight: 700 } },
+      "FY26/27 revenue by industry — actual vs target"),
+    E("table", { className: "w-full text-sm" },
+      E("thead", null, E("tr", { className: "text-left text-[11px] uppercase tracking-wide text-neutral-400 border-b border-neutral-100 bg-neutral-50/70" },
+        E("th", { className: "px-4 py-2.5 font-medium" }, "Industry"),
+        E("th", { className: "px-4 py-2.5 font-medium text-right" }, "Actual FY26/27"),
+        E("th", { className: "px-4 py-2.5 font-medium text-right" }, "Target FY26/27"),
+        E("th", { className: "px-4 py-2.5 font-medium text-right" }, "% of target"),
+        E("th", { className: "px-4 py-2.5 font-medium w-40" }, "")
+      )),
+      E("tbody", { className: "divide-y divide-neutral-50" }, industryDataRows.concat([industryTotalRow]))
+    )
+  );
+
+  /* ---- Top 10 clients table ---- */
+  const clientRows = clients.map(c => E("tr", { key: c.id, className: "hover:bg-neutral-50/60" },
+    E("td", { className: "px-4 py-2.5 text-neutral-400" }, c.rank),
+    E("td", { className: "px-4 py-2.5 font-medium text-neutral-900" }, c.client),
+    E("td", { className: "px-4 py-2.5 text-right text-neutral-500" }, money(c.totalRevenue5fy)),
+    E("td", { className: "px-4 py-2.5 text-right text-neutral-900" }, money(c.revenueFy2627))
+  ));
+  const clientsTable = E(Card, { className: "overflow-hidden" },
+    E("div", { className: "px-5 py-3 border-b border-neutral-100 font-display text-sm uppercase tracking-wide", style: { fontWeight: 700 } },
+      "Top 10 clients by revenue (FY26/27)"),
+    E("table", { className: "w-full text-sm" },
+      E("thead", null, E("tr", { className: "text-left text-[11px] uppercase tracking-wide text-neutral-400 border-b border-neutral-100 bg-neutral-50/70" },
+        E("th", { className: "px-4 py-2.5 font-medium" }, "Rank"),
+        E("th", { className: "px-4 py-2.5 font-medium" }, "Client"),
+        E("th", { className: "px-4 py-2.5 font-medium text-right" }, "Total revenue (5FY)"),
+        E("th", { className: "px-4 py-2.5 font-medium text-right" }, "FY26/27 revenue")
+      )),
+      E("tbody", { className: "divide-y divide-neutral-50" }, clientRows)
+    )
+  );
+
+  /* ---- Budget table ---- */
+  const budgetHeaderCells = [E("th", { key: "lbl", className: "px-3 py-2 font-medium sticky left-0 bg-neutral-50/70 min-w-[140px]" }, "")]
+    .concat(SALES_MONTH_LABELS.map(m => E("th", { key: m, className: "px-3 py-2 font-medium text-right min-w-[90px]" }, m)))
+    .concat([E("th", { key: "tot", className: "px-3 py-2 font-medium text-right min-w-[100px]" }, "Total")]);
+
+  const buildSegmentRows = (seg) => {
+    const headerRow = E("tr", { key: seg + "_hdr" },
+      E("td", { className: "px-3 py-1.5 font-semibold text-white sticky left-0", style: { background: SALES_SEGMENT_COLOR[seg] } }, seg),
+      ...SALES_MONTHS.map(m => E("td", { key: m, className: "px-3 py-1.5", style: { background: SALES_SEGMENT_COLOR[seg] } })),
+      E("td", { className: "px-3 py-1.5", style: { background: SALES_SEGMENT_COLOR[seg] } })
+    );
+    const revenueRow = E("tr", { key: seg + "_rev", className: "font-semibold bg-neutral-50/50" },
+      E("td", { className: "px-3 py-1.5 sticky left-0 bg-neutral-50/50" }, "Revenue"),
+      ...SALES_MONTHS.map(m => E("td", { key: m, className: "px-3 py-1.5 text-right" }, money(segmentMonthTotal(seg, m)))),
+      E("td", { className: "px-3 py-1.5 text-right" }, money(segmentTotal(seg)))
+    );
+    const catRows = SALES_CATEGORIES.map(cat => E("tr", { key: seg + "_" + cat, className: "hover:bg-neutral-50/60" },
+      E("td", { className: "px-3 py-1.5 text-neutral-500 sticky left-0 bg-white" }, cat),
+      ...SALES_MONTHS.map(m => {
+        const cur = amountFor(seg, m, cat);
+        return E("td", { key: m, className: "px-1 py-1 text-right" },
+          editable
+            ? E("input", {
+                type: "number",
+                step: "0.01",
+                defaultValue: Math.round(cur * 100) / 100,
+                onBlur: (e) => {
+                  const v = Number(e.target.value) || 0;
+                  if (v !== cur) saveCell(seg, m, cat, v);
+                },
+                className: "w-20 text-right text-[11px] bg-transparent border-0 border-b border-dashed border-neutral-200 focus:outline-none focus:border-neutral-400 px-1 py-0.5"
+              })
+            : money(cur)
+        );
+      }),
+      E("td", { className: "px-3 py-1.5 text-right text-neutral-400" }, "—")
+    ));
+    return [headerRow, revenueRow].concat(catRows);
+  };
+
+  let bodyRows = [];
+  SALES_SEGMENTS.forEach(seg => { bodyRows = bodyRows.concat(buildSegmentRows(seg)); });
+  const companyRow = E("tr", { key: "company_total", className: "font-bold bg-neutral-900 text-white" },
+    E("td", { className: "px-3 py-2 sticky left-0 bg-neutral-900" }, "Company Total"),
+    ...SALES_MONTHS.map(m => E("td", { key: m, className: "px-3 py-2 text-right" }, money(companyMonthTotal(m)))),
+    E("td", { className: "px-3 py-2 text-right" }, money(companyTotal))
+  );
+  bodyRows.push(companyRow);
+
+  const budgetTable = E(Card, { className: "overflow-hidden" },
+    E("div", { className: "px-5 py-3 border-b border-neutral-100 flex items-center justify-between" },
+      E("div", { className: "font-display text-sm uppercase tracking-wide", style: { fontWeight: 700 } }, "Budget — FY26/27 (by segment, live)"),
+      E("div", { className: "text-[11px] text-neutral-400" }, editable ? "Editable — changes save automatically and sync to Supabase" : "Read-only for your role")
+    ),
+    E("div", { className: "overflow-x-auto" },
+      E("table", { className: "text-xs", style: { minWidth: 1400 } },
+        E("thead", null, E("tr", { className: "text-left text-[10px] uppercase tracking-wide text-neutral-400 border-b border-neutral-100 bg-neutral-50/70" }, budgetHeaderCells)),
+        E("tbody", { className: "divide-y divide-neutral-50" }, bodyRows)
+      )
+    ),
+    E("div", { className: "px-5 py-2.5 text-[11px] text-neutral-400 border-t border-neutral-100" },
+      "Revenue and Company Total rows are computed live from the category rows above. This table now replaces the \"Sales target\" Excel sheet as the source of truth — the FY26/27 Target KPI and industry Target column above read directly from it.")
+  );
+
+  return E("div", { className: "space-y-5 max-w-6xl" },
+    E("div", null, SectionLabel("Company sales performance overview — source: Revenue.xlsx, imported 26 Aug 2026"), kpiBand),
+    chartRow1,
+    chartRow2,
+    industryTable,
+    clientsTable,
+    budgetTable
+  );
+}
+
 
 /* ================= Leave & Time Off ================= */
 const ANNUAL_LEAVE_POLICY_PDF = "https://sywzltkyjorotywkzrnr.supabase.co/storage/v1/object/public/contracts/policies/annual-leave-policy-v3.pdf";
@@ -7213,7 +7557,7 @@ const ms = x => {
 };
 async function loadFromSB() {
   try {
-    const [users, depsR, catsR, vend, plansR, catB, ccB, reqs, aud, setR, emps, cands, asts, tasks, hrdeps, finSnaps, actItems, lvTypes, lvBal, lvReqs, polDocs, polQs, eqReqs, costReqs, costQs, costSettles] = await Promise.all([sbGet("app_users"), sbGet("departments"), sbGet("categories"), sbGet("vendors"), sbGet("plans"), sbGet("category_budgets"), sbGet("cost_centre_budgets"), sbGet("requests"), sbGet("audit", "&order=ts.asc"), sbGet("app_settings"), sbGet("employees"), sbGet("candidates"), sbGet("assets"), sbGet("admin_tasks"), sbGet("hr_departments"), sbGet("fin_snapshots", "&order=period_end.asc"), sbGet("action_items", "&order=sort_order.asc"), sbGet("leave_types", "&order=sort_order.asc"), sbGet("leave_balances"), sbGet("leave_requests", "&order=created_at.asc"), sbGet("policy_documents", "&order=created_at.asc"), sbGet("policy_questions", "&order=created_at.asc"), sbGet("equipment_requests", "&order=created_at.asc"), sbGet("cost_requests", "&order=created_at.asc"), sbGet("cost_questions", "&order=created_at.asc"), sbGet("cost_settlements", "&order=created_at.asc")]);
+    const [users, depsR, catsR, vend, plansR, catB, ccB, reqs, aud, setR, emps, cands, asts, tasks, hrdeps, finSnaps, actItems, lvTypes, lvBal, lvReqs, polDocs, polQs, eqReqs, costReqs, costQs, costSettles, salesBudget, salesKpi, salesByFy, salesClients, salesProdType, salesIndustry] = await Promise.all([sbGet("app_users"), sbGet("departments"), sbGet("categories"), sbGet("vendors"), sbGet("plans"), sbGet("category_budgets"), sbGet("cost_centre_budgets"), sbGet("requests"), sbGet("audit", "&order=ts.asc"), sbGet("app_settings"), sbGet("employees"), sbGet("candidates"), sbGet("assets"), sbGet("admin_tasks"), sbGet("hr_departments"), sbGet("fin_snapshots", "&order=period_end.asc"), sbGet("action_items", "&order=sort_order.asc"), sbGet("leave_types", "&order=sort_order.asc"), sbGet("leave_balances"), sbGet("leave_requests", "&order=created_at.asc"), sbGet("policy_documents", "&order=created_at.asc"), sbGet("policy_questions", "&order=created_at.asc"), sbGet("equipment_requests", "&order=created_at.asc"), sbGet("cost_requests", "&order=created_at.asc"), sbGet("cost_questions", "&order=created_at.asc"), sbGet("cost_settlements", "&order=created_at.asc"), sbGet("sales_budget_lines"), sbGet("sales_kpi_summary"), sbGet("sales_revenue_by_fy", "&order=sort_order.asc"), sbGet("sales_top_clients", "&order=rank.asc"), sbGet("sales_product_type"), sbGet("sales_industry_actual")]);
     const plan0 = plansR[0] || {
       id: "plan_cur",
       month: iso(today()).slice(0, 7)
@@ -7442,6 +7786,29 @@ async function loadFromSB() {
       costRequests,
       costQuestions,
       costSettlements,
+      salesBudgetLines: salesBudget.map(b => ({
+        id: b.id, segment: b.segment, month: b.month, category: b.category, amount: Number(b.amount || 0)
+      })),
+      salesKpiSummary: salesKpi[0] ? {
+        totalRevenue5fy: Number(salesKpi[0].total_revenue_5fy || 0),
+        revenueFy2627: Number(salesKpi[0].revenue_fy2627 || 0),
+        revenueFy2526: Number(salesKpi[0].revenue_fy2526 || 0),
+        growthPct: Number(salesKpi[0].growth_pct || 0),
+        totalProjects5fy: Number(salesKpi[0].total_projects_5fy || 0),
+        asOfLabel: salesKpi[0].as_of_label || ""
+      } : null,
+      salesRevenueByFy: salesByFy.map(r => ({
+        id: r.id, fiscalYear: r.fiscal_year, revenue: Number(r.revenue || 0), sortOrder: r.sort_order || 0
+      })),
+      salesTopClients: salesClients.map(c => ({
+        id: c.id, rank: c.rank, client: c.client, totalRevenue5fy: Number(c.total_revenue_5fy || 0), revenueFy2627: Number(c.revenue_fy2627 || 0)
+      })),
+      salesProductType: salesProdType.map(p => ({
+        id: p.id, productType: p.product_type, revenueFy2627: Number(p.revenue_fy2627 || 0)
+      })),
+      salesIndustryActual: salesIndustry.map(i => ({
+        id: i.id, industry: i.industry, segment: i.segment, actualFy2627: Number(i.actual_fy2627 || 0)
+      })),
       settings: {
         _id: st.id || "default",
         webhookUrl: st.webhook_url || "",
@@ -7739,6 +8106,9 @@ async function persistDb(prev, cur) {
   if (chg("costRequests")) jobs.push(sbUpsert("cost_requests", (cur.costRequests || []).map(costReqSB)));
   if (chg("costQuestions")) jobs.push(sbUpsert("cost_questions", (cur.costQuestions || []).map(costQSB)));
   if (chg("costSettlements")) jobs.push(sbUpsert("cost_settlements", (cur.costSettlements || []).map(costSettlementSB)));
+  if (chg("salesBudgetLines")) jobs.push(sbUpsert("sales_budget_lines", (cur.salesBudgetLines || []).map(b => ({
+    id: b.id, segment: b.segment, month: b.month, category: b.category, amount: b.amount, updated_at: new Date().toISOString()
+  }))));
   if (chg("settings")) jobs.push(sbUpsert("app_settings", [{
     id: cur.settings._id || "default",
     approval_threshold: cur.settings.approvalThreshold,
@@ -8208,6 +8578,12 @@ function App() {
     roles: ["admin", "ceo", "finance_director", "accountant", "viewer"],
     badge: db.actionItems.filter(a => a.status !== "Done" && a.due_date && parse(a.due_date) < today()).length
   }, {
+    id: "salesperf",
+    label: "Company sales performance",
+    icon: "chart",
+    group: "Insights",
+    roles: ["admin", "ceo", "finance_director", "accountant", "viewer"]
+  }, {
     id: "email",
     label: "Email flow",
     icon: "mail",
@@ -8426,6 +8802,10 @@ function App() {
   }), tab === "finturn" && /*#__PURE__*/React.createElement(FinanceTurnaround, {
     db: db,
     update: update
+  }), tab === "salesperf" && /*#__PURE__*/React.createElement(SalesPerformanceV, {
+    db: db,
+    update: update,
+    role: role
   }), tab === "reports" && /*#__PURE__*/React.createElement(HRReports, {
     db: db
   }), tab === "email" && /*#__PURE__*/React.createElement(EmailFlow, {
