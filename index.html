@@ -2659,6 +2659,104 @@ function decideLeave(next, reqId, decision, actorId, actorRole, comment) {
     detail: r.leaveType + " · " + r.days + "d · " + fmtDate(r.startDate) + "–" + fmtDate(r.endDate) + (comment ? " · " + comment : "")
   });
 }
+const RECHARGE_DAYS = 2;
+const POST_PROJECT_DAYS = 1;
+function appUserIdForEmployee(db, empId) {
+  if (!empId) return null;
+  const cand = empId === "e2" ? "u_thuy" : "u_" + empId;
+  if ((db.users || []).some(u => u.id === cand)) return cand;
+  const emp = db.employees.find(e => e.id === empId);
+  const byName = emp && (db.users || []).find(u => u.name === emp.name);
+  return byName ? byName.id : null;
+}
+function hrUserIds(db) {
+  return (db.users || []).filter(u => u.role === "hr_manager").map(u => u.id);
+}
+// Decides whether a leave request clears the policy outright (auto-approved, HR + Leader
+// just notified) or needs the HR-check -> Department Head approval flow. Mirrors the
+// Annual Leave Policy v3.0: advance-notice tiers (5d for 0.5-3d, 10d for >3d — sick/funeral
+// exempt), the AL / recharge balance caps, probation/eligibility, and the policy's own
+// carve-outs (post-project recovery is manager discretion, "Other" always needs CEO sign-off).
+function leaveCompliance(db, emp, leaveTypeCode, startDateStr, days) {
+  const leaveTypes = db.leaveTypes && db.leaveTypes.length ? db.leaveTypes : LEAVE_TYPES_SEED;
+  const type = leaveTypes.find(t => t.code === leaveTypeCode);
+  const reasons = [];
+  if (!emp || !type || !startDateStr || !days) return {
+    compliant: false, reasons: ["Incomplete request."], type
+  };
+  const year = new Date(startDateStr).getFullYear();
+  if (type.code === "post_project") reasons.push("Post-project recovery is always granted at manager discretion — not auto-approved.");
+  if (type.code === "other") reasons.push("“Other” leave falls outside the policy and must be approved by the CEO.");
+  const ent = entitlementFor(emp, year);
+  if (!ent.eligible) reasons.push("Not yet eligible under policy (" + ent.note + ")");
+  if (type.deductsFrom === "annual") {
+    const bal = leaveBalanceFor(db, emp, year);
+    if (days > bal.remaining) reasons.push("Exceeds remaining Annual Leave balance (" + bal.remaining + "d left of " + bal.entitled + "d).");
+  } else if (type.deductsFrom === "recharge") {
+    const used = leaveUsedDays(db, emp.id, year, "recharge");
+    if (days > RECHARGE_DAYS - used) reasons.push("Exceeds the " + RECHARGE_DAYS + "-day/year recharge allowance (" + (RECHARGE_DAYS - used) + "d left).");
+  }
+  if (type.advanceNotice) {
+    const need = days > 3 ? 10 : 5;
+    const lead = Math.round((parse(startDateStr) - today()) / 864e5);
+    if (lead < need) reasons.push("Only " + lead + " day(s) notice given — policy needs " + need + " days for a " + days + "-day request (Tết leave needs 1 month).");
+  }
+  return {
+    compliant: reasons.length === 0, reasons, type, ent
+  };
+}
+function createLeaveRequest(next, {
+  employee, leaveType, startDate, endDate, days, reason, createdBy, createdRole
+}) {
+  next.leaveRequests = next.leaveRequests || [];
+  next.notifications = next.notifications || [];
+  const leaveTypes = next.leaveTypes && next.leaveTypes.length ? next.leaveTypes : LEAVE_TYPES_SEED;
+  const typeName = (leaveTypes.find(t => t.code === leaveType) || {}).name || leaveType;
+  const check = leaveCompliance(next, employee, leaveType, startDate, days);
+  const id = uid("lr");
+  const now = Date.now();
+  const auto = check.compliant;
+  const span = fmtDate(startDate) + "–" + fmtDate(endDate);
+  next.leaveRequests.push({
+    id, employeeId: employee.id, dept: employee.dept || "", leaveType, startDate, endDate, days, reason: reason || "",
+    status: auto ? "Approved" : "Submitted",
+    hrReviewerId: auto ? "system" : null, hrDecisionAt: auto ? now : null, hrComment: auto ? "Auto-cleared — request meets policy (advance notice + balance)." : "",
+    approverId: auto ? "system" : null, approverDecisionAt: auto ? now : null, approverComment: auto ? "Auto-approved — no Department Head sign-off required for in-policy requests." : "",
+    createdBy: createdBy || "", createdAt: now, updatedAt: now
+  });
+  next.audit.unshift({
+    id: uid("au"), ts: now, requestId: id, actorId: createdBy, role: createdRole,
+    action: "leave_submitted",
+    detail: employee.name + " · " + typeName + " · " + days + "d · " + span
+  });
+  const leaderId = appUserIdForEmployee(next, employee.managerId);
+  if (auto) {
+    next.audit.unshift({
+      id: uid("au"), ts: now, requestId: id, actorId: "system", role: "system",
+      action: "leave_auto_approved",
+      detail: "Within policy — " + typeName + " · " + days + "d · " + span + ". No approval needed."
+    });
+    next.notifications.unshift({
+      id: uid("n"), ts: now, read: false, toRole: ["hr_manager", "admin"],
+      message: employee.name + "’s " + typeName.toLowerCase() + " (" + days + "d, " + span + ") is within policy — auto-approved, FYI only.",
+      type: "leave_auto"
+    });
+    if (leaderId) next.notifications.unshift({
+      id: uid("n"), ts: now, read: false, toUser: leaderId,
+      message: employee.name + "’s " + typeName.toLowerCase() + " (" + days + "d, " + span + ") is within policy — auto-approved, FYI only.",
+      type: "leave_auto"
+    });
+  } else {
+    next.notifications.unshift({
+      id: uid("n"), ts: now, read: false, toRole: ["hr_manager", "admin"],
+      message: employee.name + "’s " + typeName.toLowerCase() + " request (" + days + "d, " + span + ") is outside policy and needs HR review: " + check.reasons.join(" "),
+      type: "leave_review"
+    });
+  }
+  return {
+    id, auto, check
+  };
+}
 function PolicyDocCard({
   db
 }) {
@@ -2754,7 +2852,9 @@ function LeaveTracker({
       tone: LEAVE_TYPE_TONE[r.leaveType]
     }, typeName(r.leaveType)), E(Tag, {
       tone: LEAVE_STATUS_TONE[r.status]
-    }, r.status)), E("div", {
+    }, r.status), r.approverId === "system" && E(Tag, {
+      tone: "bg-cyan-50 text-cyan-700 ring-cyan-200"
+    }, "Auto — within policy")), E("div", {
       className: "text-[11px] text-neutral-400 mt-0.5"
     }, r.dept, " · ", fmtDate(r.startDate), "–", fmtDate(r.endDate), " · ", r.days, "d · dept head: ", managerName(r.employeeId)), r.reason && E("div", {
       className: "text-[12px] text-neutral-500 mt-1"
@@ -2957,21 +3057,27 @@ function LeaveModal({
   const selYear = isNew ? new Date(form.startDate).getFullYear() : req ? new Date(req.startDate).getFullYear() : today().getFullYear();
   const bal = selEmp ? leaveBalanceFor(db, selEmp, selYear) : null;
   const selType = isNew ? leaveTypes.find(t => t.code === form.leaveType) : req ? leaveTypes.find(t => t.code === req.leaveType) : null;
-  const advanceWarning = () => {
-    if (!isNew || !selType || !selType.advanceNotice) return null;
-    const days = Number(form.days || 0);
-    if (!days || !form.startDate) return null;
-    const need = days > 3 ? 10 : 5;
-    const lead = Math.round((parse(form.startDate) - today()) / 864e5);
-    if (lead < need) return "Only " + lead + " day(s) notice — policy asks for " + need + " days for a " + days + "-day request (Tết leave needs 1 month). HR/CEO can still approve as an exception.";
-    return null;
-  };
-  const balanceWarning = () => {
-    if (!isNew || !bal || !selType || selType.deductsFrom !== "annual") return null;
-    const days = Number(form.days || 0);
-    if (days > bal.remaining) return "Requesting " + days + "d but only " + bal.remaining + "d remain of " + bal.entitled + "d entitled for " + selYear + ".";
-    return null;
-  };
+  const compliancePreview = isNew && selEmp && selType && form.startDate && Number(form.days) ? leaveCompliance(db, selEmp, form.leaveType, form.startDate, Number(form.days)) : null;
+  let compliancePanel = null;
+  if (compliancePreview) {
+    if (compliancePreview.compliant) {
+      compliancePanel = E("div", {
+        className: "text-[12px] text-emerald-700 bg-emerald-50 ring-1 ring-emerald-200 rounded-xl px-3 py-2 flex items-start gap-1.5"
+      }, E(Icon, {
+        n: "check", size: 13, className: "mt-0.5 shrink-0"
+      }), E("span", null, "Within policy — auto-approved on submit, no Department Head sign-off needed. HR and ", (selEmp && selEmp.managerId ? empName2(db, selEmp.managerId) : "the Department Head"), " get an FYI notification only."));
+    } else {
+      compliancePanel = E("div", {
+        className: "text-[12px] text-amber-800 bg-amber-50 ring-1 ring-amber-200 rounded-xl px-3 py-2"
+      }, E("div", {
+        className: "font-semibold mb-0.5"
+      }, "Needs HR review + Department Head approval:"), E("ul", {
+        className: "list-disc pl-4 space-y-0.5"
+      }, compliancePreview.reasons.map((r, i) => E("li", {
+        key: i
+      }, r))));
+    }
+  }
   const titles = {
     new_leave: "New leave request",
     leave_hr: modal.decision === "pass" ? "Pass to Department Head" : "Reject at HR / policy check",
@@ -2981,22 +3087,12 @@ function LeaveModal({
     if (modal.type === "new_leave") {
       if (!form.employeeId || !form.startDate || !form.endDate || !Number(form.days)) return;
       const employee = db.employees.find(e => e.id === form.employeeId);
-      const id = uid("lr");
-      update(next => {
-        next.leaveRequests = next.leaveRequests || [];
-        next.leaveRequests.push({
-          id, employeeId: form.employeeId, dept: (employee && employee.dept) || "", leaveType: form.leaveType,
-          startDate: form.startDate, endDate: form.endDate, days: Number(form.days), reason: form.reason,
-          status: "Submitted", hrReviewerId: null, hrDecisionAt: null, hrComment: "",
-          approverId: null, approverDecisionAt: null, approverComment: "",
-          createdBy: (me && me.id) || "", createdAt: Date.now(), updatedAt: Date.now()
-        });
-        next.audit.unshift({
-          id: uid("au"), ts: Date.now(), requestId: id, actorId: me && me.id, role,
-          action: "leave_submitted",
-          detail: (employee ? employee.name : form.employeeId) + " · " + (leaveTypes.find(t => t.code === form.leaveType) || {}).name + " · " + form.days + "d · " + fmtDate(form.startDate) + "–" + fmtDate(form.endDate)
-        });
-      });
+      if (!employee) return;
+      update(next => createLeaveRequest(next, {
+        employee: next.employees.find(e => e.id === employee.id), leaveType: form.leaveType,
+        startDate: form.startDate, endDate: form.endDate, days: Number(form.days), reason: form.reason,
+        createdBy: (me && me.id) || "", createdRole: role
+      }));
     } else if (modal.type === "leave_hr" && req) {
       update(next => modal.decision === "pass" ? passToApproval(next, req.id, me && me.id, role, form.comment) : hrRejectLeave(next, req.id, me && me.id, role, form.comment));
     } else if (modal.type === "leave_decide" && req) {
@@ -3004,8 +3100,6 @@ function LeaveModal({
     }
     close();
   };
-  const aw = advanceWarning(),
-    bw = balanceWarning();
   return E("div", {
     className: "fixed inset-0 bg-black/40 z-40 flex items-center justify-center p-4",
     onClick: close
@@ -3056,11 +3150,7 @@ function LeaveModal({
     className: INP, rows: 2, value: form.reason, onChange: ev => set("reason", ev.target.value)
   })), bal && selType && selType.deductsFrom === "annual" && E("div", {
     className: "text-[11px] text-neutral-400 bg-neutral-50 rounded-xl px-3 py-2"
-  }, selEmp.name, " has ", bal.remaining, "d remaining of ", bal.entitled, "d entitled for ", selYear, "."), aw && E("div", {
-    className: "text-[12px] text-amber-800 bg-amber-50 ring-1 ring-amber-200 rounded-xl px-3 py-2"
-  }, aw), bw && E("div", {
-    className: "text-[12px] text-rose-700 bg-rose-50 ring-1 ring-rose-200 rounded-xl px-3 py-2"
-  }, bw)) : E(React.Fragment, null, req && E("div", {
+  }, selEmp.name, " has ", bal.remaining, "d remaining of ", bal.entitled, "d entitled for ", selYear, "."), compliancePanel) : E(React.Fragment, null, req && E("div", {
     className: "bg-neutral-50 rounded-xl px-3 py-2.5 text-[12.5px] text-neutral-600"
   }, E("div", {
     className: "font-medium text-neutral-800"
