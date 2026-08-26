@@ -651,7 +651,12 @@ const PERMS = {
   view_dashboard: ["requester", "team_leader", "accountant", "finance_director", "ceo", "payer", "admin", "viewer"],
   request_leave: ["requester", "team_leader", "accountant", "finance_director", "ceo", "payer", "admin", "hr_manager"],
   review_leave: ["hr_manager", "admin", "ceo", "finance_director"],
-  approve_leave: ["hr_manager", "admin", "ceo"]
+  approve_leave: ["hr_manager", "admin", "ceo"],
+  request_equipment: ["requester", "team_leader", "accountant", "finance_director", "ceo", "payer", "admin", "hr_manager"],
+  review_equipment: ["hr_manager", "admin", "ceo"],
+  approve_equipment_cfo: ["finance_director", "admin", "ceo"],
+  approve_equipment_ceo: ["ceo", "admin"],
+  manage_asset_register: ["hr_manager", "finance_director", "admin", "ceo"]
 };
 const can = (role, a) => (PERMS[a] || []).includes(role);
 const STATUS = {
@@ -1952,6 +1957,7 @@ function seed() {
     leaveRequests: [],
     policyDocs: [],
     policyQuestions: [],
+    equipmentRequests: [],
     settings: {
       webhookUrl: "https://hook.us2.make.com/bsh3fl3qco185yg6nqm1k27dd14gcj19",
       emailEnabled: true,
@@ -4056,94 +4062,471 @@ function OfficeV({
   db,
   update,
   nameOf,
-  setModal
+  setModal,
+  role,
+  myEmpId
 }) {
-  const cycle = id => update(n => {
-    const t = n.adminTasks.find(x => x.id === id);
-    const order = ["Open", "In progress", "Done"];
-    t.status = order[(order.indexOf(t.status) + 1) % order.length];
-  });
+  const E = React.createElement;
+  const canManageAssets = ["hr_manager", "finance_director", "admin", "ceo"].includes(role);
+  const canEditTasks = ["hr_manager", "admin", "ceo"].includes(role) || myEmpId === "e10";
+  const cycle = id => {
+    if (!canEditTasks) return;
+    update(n => {
+      const t = n.adminTasks.find(x => x.id === id);
+      const order = ["Open", "In progress", "Done"];
+      t.status = order[(order.indexOf(t.status) + 1) % order.length];
+    });
+  };
   const stCls = {
     Open: "bg-blue-50 text-blue-700",
     "In progress": "bg-amber-50 text-amber-800",
     Done: "bg-emerald-50 text-emerald-700",
     Overdue: "bg-rose-50 text-rose-700"
   };
-  return /*#__PURE__*/React.createElement("div", {
-    className: "max-w-6xl grid lg:grid-cols-2 gap-5"
-  }, /*#__PURE__*/React.createElement(Card, {
-    className: "overflow-hidden"
-  }, /*#__PURE__*/React.createElement("div", {
+  const assets = db.assets || [];
+  const total = assets.length;
+  const inStock = assets.filter(a => a.status === "In stock").length;
+  const assigned = assets.filter(a => a.status === "Assigned").length;
+  const byCat = {};
+  assets.forEach(a => {
+    const c = a.category || "Other";
+    byCat[c] = byCat[c] || {
+      total: 0,
+      inStock: 0,
+      assigned: 0
+    };
+    byCat[c].total++;
+    if (a.status === "In stock") byCat[c].inStock++;else if (a.status === "Assigned") byCat[c].assigned++;
+  });
+  const catOrder = Object.keys(byCat).sort((a, b) => byCat[b].total - byCat[a].total);
+  const assetHeader = E("div", {
     className: "px-4 py-3 border-b border-neutral-100 flex items-center justify-between"
-  }, /*#__PURE__*/React.createElement("span", {
+  }, E("span", {
     className: "font-display text-sm uppercase tracking-wide",
     style: {
       fontWeight: 700
     }
-  }, "Asset & equipment register"), /*#__PURE__*/React.createElement("button", {
+  }, "Asset & equipment register"), E("button", {
     onClick: () => setModal({
       type: "new_asset"
     }),
     className: "text-[11px] text-neutral-500 hover:text-neutral-800 inline-flex items-center gap-1"
-  }, /*#__PURE__*/React.createElement(Icon, {
+  }, E(Icon, {
     n: "plus",
     size: 12
-  }), " add")), /*#__PURE__*/React.createElement("table", {
+  }), " add"));
+  const assetStats = E("div", {
+    className: "px-4 py-3 grid grid-cols-3 gap-3 border-b border-neutral-100"
+  }, [["Total assets", total], ["In stock", inStock], ["Assigned", assigned]].map(([label, val]) => E("div", {
+    key: label,
+    className: "rounded-lg bg-neutral-50 px-3 py-2"
+  }, E("div", {
+    className: "text-[10px] uppercase tracking-wide text-neutral-400"
+  }, label), E("div", {
+    className: "text-lg font-display",
+    style: {
+      fontWeight: 800
+    }
+  }, val))));
+  const catChips = catOrder.map(c => E("span", {
+    key: c,
+    className: "text-[11px] px-2 py-1 rounded-full bg-neutral-100 text-neutral-600"
+  }, `${c}: ${byCat[c].total} (${byCat[c].assigned} assigned · ${byCat[c].inStock} in stock)`));
+  const assetCatRow = E("div", {
+    className: "px-4 py-2.5 border-b border-neutral-100"
+  }, E("div", {
+    className: "text-[10px] uppercase tracking-wide text-neutral-400 mb-1.5"
+  }, "By category"), E("div", {
+    className: "flex flex-wrap gap-1.5"
+  }, catChips));
+  const assetRows = assets.map(a => {
+    const tagEl = E("div", {
+      className: "font-medium"
+    }, a.tag);
+    const subEl = E("div", {
+      className: "text-[11px] text-neutral-400"
+    }, a.category ? `${a.category} · ${a.type}` : a.type);
+    const td1 = E("td", {
+      className: "px-4 py-2.5"
+    }, tagEl, subEl);
+    const whoEl = a.assignedTo ? nameOf(a.assignedTo) : E("span", {
+      className: "text-neutral-400"
+    }, "—");
+    const td2 = E("td", {
+      className: "px-4 py-2.5 text-neutral-600"
+    }, whoEl);
+    const pillEl = E("span", {
+      className: `text-[11px] px-2 py-0.5 rounded-full ${a.status === "Assigned" ? "bg-emerald-50 text-emerald-700" : "bg-neutral-100 text-neutral-500"}`
+    }, a.status);
+    const td3 = E("td", {
+      className: "px-4 py-2.5"
+    }, pillEl);
+    return E("tr", {
+      key: a.id
+    }, td1, td2, td3);
+  });
+  const assetTable = E("div", {
+    className: "max-h-80 overflow-auto"
+  }, E("table", {
     className: "w-full text-sm"
-  }, /*#__PURE__*/React.createElement("tbody", {
+  }, E("tbody", {
     className: "divide-y divide-neutral-50"
-  }, db.assets.map(a => /*#__PURE__*/React.createElement("tr", {
-    key: a.id
-  }, /*#__PURE__*/React.createElement("td", {
-    className: "px-4 py-2.5"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "font-medium"
-  }, a.tag), /*#__PURE__*/React.createElement("div", {
-    className: "text-[11px] text-neutral-400"
-  }, a.type)), /*#__PURE__*/React.createElement("td", {
-    className: "px-4 py-2.5 text-neutral-600"
-  }, a.assignedTo ? nameOf(a.assignedTo) : /*#__PURE__*/React.createElement("span", {
-    className: "text-neutral-400"
-  }, "—")), /*#__PURE__*/React.createElement("td", {
-    className: "px-4 py-2.5"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: `text-[11px] px-2 py-0.5 rounded-full ${a.status === "Assigned" ? "bg-emerald-50 text-emerald-700" : "bg-neutral-100 text-neutral-500"}`
-  }, a.status))))))), /*#__PURE__*/React.createElement(Card, {
+  }, assetRows)));
+  const assetRestricted = E(Card, {
+    className: "p-5"
+  }, E("div", {
+    className: "font-display text-sm uppercase tracking-wide mb-1",
+    style: {
+      fontWeight: 700
+    }
+  }, "Asset & equipment register"), E("div", {
+    className: "text-[12px] text-neutral-500"
+  }, "Overview restricted to HR Manager and Finance Director."));
+  const assetCard = canManageAssets ? E(Card, {
     className: "overflow-hidden"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, assetHeader, assetStats, assetCatRow, assetTable) : assetRestricted;
+  const taskHeader = E("div", {
     className: "px-4 py-3 border-b border-neutral-100 flex items-center justify-between"
-  }, /*#__PURE__*/React.createElement("span", {
+  }, E("span", {
     className: "font-display text-sm uppercase tracking-wide",
     style: {
       fontWeight: 700
     }
-  }, "Admin & facilities tasks"), /*#__PURE__*/React.createElement("button", {
+  }, "Admin & facilities tasks"), canEditTasks && E("button", {
     onClick: () => setModal({
       type: "new_task"
     }),
     className: "text-[11px] text-neutral-500 hover:text-neutral-800 inline-flex items-center gap-1"
-  }, /*#__PURE__*/React.createElement(Icon, {
+  }, E(Icon, {
     n: "plus",
     size: 12
-  }), " add")), /*#__PURE__*/React.createElement("table", {
+  }), " add"));
+  const taskRows = db.adminTasks.map(t => {
+    const titleEl = E("div", {
+      className: "font-medium"
+    }, t.title);
+    const metaEl = E("div", {
+      className: "text-[11px] text-neutral-400"
+    }, t.category, " · ", nameOf(t.owner), " · due ", t.due ? shortDate(t.due) : "—");
+    const noteEl = t.note ? E("div", {
+      className: "text-[11px] text-neutral-400 mt-0.5 italic"
+    }, t.note) : null;
+    const td1 = E("td", {
+      className: "px-4 py-2.5"
+    }, titleEl, metaEl, noteEl);
+    const pillCls = `text-[11px] px-2 py-0.5 rounded-full ${stCls[t.status] || "bg-neutral-100 text-neutral-600"}`;
+    const statusEl = canEditTasks ? E("button", {
+      onClick: () => cycle(t.id),
+      className: pillCls
+    }, t.status) : E("span", {
+      className: pillCls
+    }, t.status);
+    const td2 = E("td", {
+      className: "px-4 py-2.5 text-right align-top"
+    }, statusEl);
+    return E("tr", {
+      key: t.id,
+      className: "hover:bg-neutral-50/60"
+    }, td1, td2);
+  });
+  const taskTable = E("table", {
     className: "w-full text-sm"
-  }, /*#__PURE__*/React.createElement("tbody", {
+  }, E("tbody", {
     className: "divide-y divide-neutral-50"
-  }, db.adminTasks.map(t => /*#__PURE__*/React.createElement("tr", {
-    key: t.id,
-    className: "hover:bg-neutral-50/60"
-  }, /*#__PURE__*/React.createElement("td", {
-    className: "px-4 py-2.5"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "font-medium"
-  }, t.title), /*#__PURE__*/React.createElement("div", {
-    className: "text-[11px] text-neutral-400"
-  }, t.category, " · ", nameOf(t.owner), " · due ", shortDate(t.due))), /*#__PURE__*/React.createElement("td", {
-    className: "px-4 py-2.5 text-right"
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => cycle(t.id),
-    className: `text-[11px] px-2 py-0.5 rounded-full ${stCls[t.status] || "bg-neutral-100 text-neutral-600"}`
-  }, t.status))))))));
+  }, taskRows));
+  const tasksCard = E(Card, {
+    className: "overflow-hidden"
+  }, taskHeader, taskTable);
+  return E("div", {
+    className: "max-w-6xl grid lg:grid-cols-2 gap-5"
+  }, assetCard, tasksCard);
+}
+const EQ_STCLS = {
+  Submitted: "bg-blue-50 text-blue-700",
+  "Pending CFO Approval": "bg-amber-50 text-amber-800",
+  "Pending CEO Approval": "bg-amber-50 text-amber-800",
+  "Approved — Procurement": "bg-violet-50 text-violet-700",
+  Fulfilled: "bg-emerald-50 text-emerald-700",
+  Rejected: "bg-rose-50 text-rose-700"
+};
+function EquipmentV({
+  db,
+  update,
+  role,
+  me,
+  meId,
+  myEmpId,
+  nameOf
+}) {
+  const E = React.createElement;
+  const [note, setNote] = useState("");
+  const [pickAsset, setPickAsset] = useState({});
+  const [comment, setComment] = useState({});
+  const reqs = db.equipmentRequests || [];
+  const myReqs = reqs.filter(r => r.employeeId === myEmpId);
+  const myAssets = (db.assets || []).filter(a => a.assignedTo === myEmpId);
+  const inStock = (db.assets || []).filter(a => a.status === "In stock").slice().sort((a, b) => (a.category || "").localeCompare(b.category || ""));
+  const isHRQueue = can(role, "review_equipment");
+  const isCfoQueue = can(role, "approve_equipment_cfo");
+  const isCeoQueue = can(role, "approve_equipment_ceo");
+  const submit = () => {
+    if (!note.trim() || !myEmpId) return;
+    update(n => {
+      n.equipmentRequests = n.equipmentRequests || [];
+      n.equipmentRequests.unshift({
+        id: uid("eq"),
+        employeeId: myEmpId,
+        note: note.trim(),
+        status: "Submitted",
+        resolution: null,
+        linkedAssetId: null,
+        hrReviewerId: null,
+        hrDecisionAt: null,
+        hrComment: "",
+        cfoId: null,
+        cfoDecisionAt: null,
+        cfoComment: "",
+        ceoId: null,
+        ceoDecisionAt: null,
+        ceoComment: "",
+        adminTaskId: null,
+        createdBy: meId,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      });
+    });
+    setNote("");
+  };
+  const hrSupply = id => update(n => {
+    const r = n.equipmentRequests.find(x => x.id === id);
+    const assetId = pickAsset[id];
+    if (!r || !assetId) return;
+    r.status = "Fulfilled";
+    r.resolution = "supply_stock";
+    r.linkedAssetId = assetId;
+    r.hrReviewerId = meId;
+    r.hrDecisionAt = Date.now();
+    r.hrComment = comment[id] || "Supplied from stock.";
+    r.updatedAt = Date.now();
+    const asset = n.assets.find(a => a.id === assetId);
+    if (asset) {
+      asset.status = "Assigned";
+      asset.assignedTo = r.employeeId;
+    }
+  });
+  const hrEscalate = id => update(n => {
+    const r = n.equipmentRequests.find(x => x.id === id);
+    if (!r) return;
+    r.status = "Pending CFO Approval";
+    r.resolution = "purchase_new";
+    r.hrReviewerId = meId;
+    r.hrDecisionAt = Date.now();
+    r.hrComment = comment[id] || "Not available in stock — requesting purchase approval.";
+    r.updatedAt = Date.now();
+  });
+  const hrReject = id => update(n => {
+    const r = n.equipmentRequests.find(x => x.id === id);
+    if (!r) return;
+    r.status = "Rejected";
+    r.hrReviewerId = meId;
+    r.hrDecisionAt = Date.now();
+    r.hrComment = comment[id] || "Not approved.";
+    r.updatedAt = Date.now();
+  });
+  const cfoDecide = (id, approve) => update(n => {
+    const r = n.equipmentRequests.find(x => x.id === id);
+    if (!r) return;
+    r.cfoId = meId;
+    r.cfoDecisionAt = Date.now();
+    r.cfoComment = comment[id] || "";
+    r.status = approve ? "Pending CEO Approval" : "Rejected";
+    r.updatedAt = Date.now();
+  });
+  const ceoDecide = (id, approve) => update(n => {
+    const r = n.equipmentRequests.find(x => x.id === id);
+    if (!r) return;
+    r.ceoId = meId;
+    r.ceoDecisionAt = Date.now();
+    r.ceoComment = comment[id] || "";
+    if (approve) {
+      r.status = "Approved — Procurement";
+      const emp = n.employees.find(e => e.id === r.employeeId);
+      const taskId = uid("t");
+      n.adminTasks.push({
+        id: taskId,
+        title: `Purchase equipment for ${emp ? emp.name : r.employeeId}: ${r.note.slice(0, 80)}`,
+        category: "Procurement",
+        owner: (r.hrReviewerId && employeeIdForAppUser(n, r.hrReviewerId)) || "e21",
+        due: iso(new Date(Date.now() + 7 * 864e5)),
+        status: "Open",
+        note: r.note,
+        source: "equipment_request"
+      });
+      r.adminTaskId = taskId;
+    } else {
+      r.status = "Rejected";
+    }
+    r.updatedAt = Date.now();
+  });
+  const reqRow = (r, actions) => E("div", {
+    key: r.id,
+    className: "px-4 py-3 border-b border-neutral-50 last:border-0"
+  }, E("div", {
+    className: "flex items-start justify-between gap-3"
+  }, E("div", {
+    className: "min-w-0"
+  }, E("div", {
+    className: "font-medium text-sm"
+  }, nameOf(r.employeeId)), E("div", {
+    className: "text-[12px] text-neutral-600 mt-0.5"
+  }, r.note), r.hrComment && E("div", {
+    className: "text-[11px] text-neutral-400 mt-1"
+  }, "HR: ", r.hrComment), r.cfoComment && E("div", {
+    className: "text-[11px] text-neutral-400 mt-0.5"
+  }, "CFO: ", r.cfoComment), r.ceoComment && E("div", {
+    className: "text-[11px] text-neutral-400 mt-0.5"
+  }, "CEO: ", r.ceoComment)), E("span", {
+    className: `shrink-0 text-[11px] px-2 py-0.5 rounded-full ${EQ_STCLS[r.status] || "bg-neutral-100 text-neutral-600"}`
+  }, r.status)), actions && E("div", {
+    className: "mt-2"
+  }, actions));
+  const hrActions = r => E("div", {
+    className: "space-y-1.5"
+  }, E("select", {
+    className: "text-[12px] border border-neutral-200 rounded-lg px-2 py-1 mr-1.5",
+    value: pickAsset[r.id] || "",
+    onChange: e => setPickAsset(p => ({
+      ...p,
+      [r.id]: e.target.value
+    }))
+  }, E("option", {
+    value: ""
+  }, "— pick asset in stock —"), inStock.map(a => E("option", {
+    key: a.id,
+    value: a.id
+  }, `${a.category || a.type} · ${a.tag}`))), E("input", {
+    className: "text-[12px] border border-neutral-200 rounded-lg px-2 py-1 mr-1.5 w-48",
+    placeholder: "comment (optional)",
+    value: comment[r.id] || "",
+    onChange: e => setComment(c => ({
+      ...c,
+      [r.id]: e.target.value
+    }))
+  }), E("button", {
+    onClick: () => hrSupply(r.id),
+    disabled: !pickAsset[r.id],
+    className: "text-[11px] px-2 py-1 rounded-lg bg-emerald-600 text-white disabled:opacity-40 mr-1.5"
+  }, "Supply from stock"), E("button", {
+    onClick: () => hrEscalate(r.id),
+    className: "text-[11px] px-2 py-1 rounded-lg bg-neutral-900 text-white mr-1.5"
+  }, "Request purchase → CFO"), E("button", {
+    onClick: () => hrReject(r.id),
+    className: "text-[11px] px-2 py-1 rounded-lg bg-rose-50 text-rose-700"
+  }, "Reject"));
+  const cfoActions = r => E("div", {
+    className: "space-y-1.5"
+  }, E("input", {
+    className: "text-[12px] border border-neutral-200 rounded-lg px-2 py-1 mr-1.5 w-56",
+    placeholder: "comment (optional)",
+    value: comment[r.id] || "",
+    onChange: e => setComment(c => ({
+      ...c,
+      [r.id]: e.target.value
+    }))
+  }), E("button", {
+    onClick: () => cfoDecide(r.id, true),
+    className: "text-[11px] px-2 py-1 rounded-lg bg-emerald-600 text-white mr-1.5"
+  }, "Approve → CEO"), E("button", {
+    onClick: () => cfoDecide(r.id, false),
+    className: "text-[11px] px-2 py-1 rounded-lg bg-rose-50 text-rose-700"
+  }, "Reject"));
+  const ceoActions = r => E("div", {
+    className: "space-y-1.5"
+  }, E("input", {
+    className: "text-[12px] border border-neutral-200 rounded-lg px-2 py-1 mr-1.5 w-56",
+    placeholder: "comment (optional)",
+    value: comment[r.id] || "",
+    onChange: e => setComment(c => ({
+      ...c,
+      [r.id]: e.target.value
+    }))
+  }), E("button", {
+    onClick: () => ceoDecide(r.id, true),
+    className: "text-[11px] px-2 py-1 rounded-lg bg-emerald-600 text-white mr-1.5"
+  }, "Final approve"), E("button", {
+    onClick: () => ceoDecide(r.id, false),
+    className: "text-[11px] px-2 py-1 rounded-lg bg-rose-50 text-rose-700"
+  }, "Reject"));
+  const myCard = E(Card, {
+    className: "overflow-hidden"
+  }, E("div", {
+    className: "px-4 py-3 border-b border-neutral-100"
+  }, E("span", {
+    className: "font-display text-sm uppercase tracking-wide",
+    style: {
+      fontWeight: 700
+    }
+  }, "My equipment")), E("div", {
+    className: "px-4 py-3 border-b border-neutral-100"
+  }, myAssets.length ? E("div", {
+    className: "flex flex-wrap gap-1.5 mb-3"
+  }, myAssets.map(a => E("span", {
+    key: a.id,
+    className: "text-[11px] px-2 py-1 rounded-full bg-neutral-100 text-neutral-600"
+  }, `${a.category || a.type} · ${a.tag}`))) : E("div", {
+    className: "text-[12px] text-neutral-400 mb-3"
+  }, "No equipment currently on record for you."), E(Field, {
+    label: "Note / request to HR (what you have, what's missing or broken, what you need)"
+  }, E("textarea", {
+    className: INP,
+    rows: 3,
+    value: note,
+    onChange: e => setNote(e.target.value),
+    placeholder: "e.g. My monitor cable is broken and I need a spare mouse."
+  })), E("button", {
+    onClick: submit,
+    disabled: !note.trim(),
+    className: "mt-2 text-[12px] px-3 py-1.5 rounded-lg bg-neutral-900 text-white disabled:opacity-40"
+  }, "Submit to HR")), myReqs.length > 0 && E("div", {}, myReqs.map(r => reqRow(r, null))));
+  const hrCard = isHRQueue && E(Card, {
+    className: "overflow-hidden"
+  }, E("div", {
+    className: "px-4 py-3 border-b border-neutral-100"
+  }, E("span", {
+    className: "font-display text-sm uppercase tracking-wide",
+    style: {
+      fontWeight: 700
+    }
+  }, "HR review queue")), reqs.filter(r => r.status === "Submitted").length ? reqs.filter(r => r.status === "Submitted").map(r => reqRow(r, hrActions(r))) : E("div", {
+    className: "px-4 py-3 text-[12px] text-neutral-400"
+  }, "Nothing pending."));
+  const cfoCard = isCfoQueue && E(Card, {
+    className: "overflow-hidden"
+  }, E("div", {
+    className: "px-4 py-3 border-b border-neutral-100"
+  }, E("span", {
+    className: "font-display text-sm uppercase tracking-wide",
+    style: {
+      fontWeight: 700
+    }
+  }, "CFO purchase approval")), reqs.filter(r => r.status === "Pending CFO Approval").length ? reqs.filter(r => r.status === "Pending CFO Approval").map(r => reqRow(r, cfoActions(r))) : E("div", {
+    className: "px-4 py-3 text-[12px] text-neutral-400"
+  }, "Nothing pending."));
+  const ceoCard = isCeoQueue && E(Card, {
+    className: "overflow-hidden"
+  }, E("div", {
+    className: "px-4 py-3 border-b border-neutral-100"
+  }, E("span", {
+    className: "font-display text-sm uppercase tracking-wide",
+    style: {
+      fontWeight: 700
+    }
+  }, "CEO final approval")), reqs.filter(r => r.status === "Pending CEO Approval").length ? reqs.filter(r => r.status === "Pending CEO Approval").map(r => reqRow(r, ceoActions(r))) : E("div", {
+    className: "px-4 py-3 text-[12px] text-neutral-400"
+  }, "Nothing pending."));
+  return E("div", {
+    className: "max-w-6xl grid lg:grid-cols-2 gap-5"
+  }, myCard, hrCard, cfoCard, ceoCard);
 }
 function HRReports({
   db
@@ -4262,6 +4645,7 @@ function HRModal({
     if (modal.type === "new_asset") return {
       tag: "",
       type: "",
+      category: "Laptop",
       assignedTo: ""
     };
     if (modal.type === "new_task") return {
@@ -4343,6 +4727,7 @@ function HRModal({
         id: uid("a"),
         tag: form.tag,
         type: form.type,
+        category: form.category || "Other",
         assignedTo: form.assignedTo || null,
         status: form.assignedTo ? "Assigned" : "In stock",
         serial: "—"
@@ -4699,6 +5084,15 @@ function HRModal({
     onChange: e => set("type", e.target.value),
     placeholder: "Laptop — MacBook Air"
   })), /*#__PURE__*/React.createElement(Field, {
+    label: "Category"
+  }, /*#__PURE__*/React.createElement("select", {
+    className: INP,
+    value: form.category,
+    onChange: e => set("category", e.target.value)
+  }, ["Laptop", "Monitor", "Mobile Phone", "Desk", "Cabinet", "Chair", "Access Card", "Network Equipment", "Peripheral", "Other"].map(c => /*#__PURE__*/React.createElement("option", {
+    key: c,
+    value: c
+  }, c)))), /*#__PURE__*/React.createElement(Field, {
     label: "Assign to"
   }, /*#__PURE__*/React.createElement("select", {
     className: INP,
@@ -4771,7 +5165,7 @@ const ms = x => {
 };
 async function loadFromSB() {
   try {
-    const [users, depsR, catsR, vend, plansR, catB, ccB, reqs, aud, setR, emps, cands, asts, tasks, hrdeps, finSnaps, actItems, lvTypes, lvBal, lvReqs, polDocs, polQs] = await Promise.all([sbGet("app_users"), sbGet("departments"), sbGet("categories"), sbGet("vendors"), sbGet("plans"), sbGet("category_budgets"), sbGet("cost_centre_budgets"), sbGet("requests"), sbGet("audit", "&order=ts.asc"), sbGet("app_settings"), sbGet("employees"), sbGet("candidates"), sbGet("assets"), sbGet("admin_tasks"), sbGet("hr_departments"), sbGet("fin_snapshots", "&order=period_end.asc"), sbGet("action_items", "&order=sort_order.asc"), sbGet("leave_types", "&order=sort_order.asc"), sbGet("leave_balances"), sbGet("leave_requests", "&order=created_at.asc"), sbGet("policy_documents", "&order=created_at.asc"), sbGet("policy_questions", "&order=created_at.asc")]);
+    const [users, depsR, catsR, vend, plansR, catB, ccB, reqs, aud, setR, emps, cands, asts, tasks, hrdeps, finSnaps, actItems, lvTypes, lvBal, lvReqs, polDocs, polQs, eqReqs] = await Promise.all([sbGet("app_users"), sbGet("departments"), sbGet("categories"), sbGet("vendors"), sbGet("plans"), sbGet("category_budgets"), sbGet("cost_centre_budgets"), sbGet("requests"), sbGet("audit", "&order=ts.asc"), sbGet("app_settings"), sbGet("employees"), sbGet("candidates"), sbGet("assets"), sbGet("admin_tasks"), sbGet("hr_departments"), sbGet("fin_snapshots", "&order=period_end.asc"), sbGet("action_items", "&order=sort_order.asc"), sbGet("leave_types", "&order=sort_order.asc"), sbGet("leave_balances"), sbGet("leave_requests", "&order=created_at.asc"), sbGet("policy_documents", "&order=created_at.asc"), sbGet("policy_questions", "&order=created_at.asc"), sbGet("equipment_requests", "&order=created_at.asc")]);
     const plan0 = plansR[0] || {
       id: "plan_cur",
       month: iso(today()).slice(0, 7)
@@ -4867,6 +5261,7 @@ async function loadFromSB() {
       id: a.id,
       tag: a.tag,
       type: a.type,
+      category: a.category || "Other",
       assignedTo: a.assigned_to,
       status: a.status,
       serial: a.serial
@@ -4877,7 +5272,31 @@ async function loadFromSB() {
       category: t.category,
       owner: t.owner,
       due: t.due_date,
-      status: t.status
+      status: t.status,
+      priority: t.priority == null ? null : Number(t.priority),
+      note: t.note || "",
+      source: t.source || ""
+    }));
+    const equipmentRequests = eqReqs.map(r => ({
+      id: r.id,
+      employeeId: r.employee_id,
+      note: r.note || "",
+      status: r.status,
+      resolution: r.resolution || null,
+      linkedAssetId: r.linked_asset_id || null,
+      hrReviewerId: r.hr_reviewer_id || null,
+      hrDecisionAt: r.hr_decision_at ? ms(r.hr_decision_at) : null,
+      hrComment: r.hr_comment || "",
+      cfoId: r.cfo_id || null,
+      cfoDecisionAt: r.cfo_decision_at ? ms(r.cfo_decision_at) : null,
+      cfoComment: r.cfo_comment || "",
+      ceoId: r.ceo_id || null,
+      ceoDecisionAt: r.ceo_decision_at ? ms(r.ceo_decision_at) : null,
+      ceoComment: r.ceo_comment || "",
+      adminTaskId: r.admin_task_id || null,
+      createdBy: r.created_by || "",
+      createdAt: ms(r.created_at),
+      updatedAt: ms(r.updated_at)
     }));
     const st = setR[0] || {};
     return {
@@ -4900,6 +5319,7 @@ async function loadFromSB() {
       candidates,
       assets,
       adminTasks,
+      equipmentRequests,
       hrDepartments: hrdeps.map(d => d.name),
       finSnapshots: finSnaps.length ? finSnaps : FIN_SNAPSHOTS_SEED,
       actionItems: actItems.length ? actItems : ACTION_ITEMS_SEED,
@@ -5017,6 +5437,7 @@ const assetSB = a => ({
   id: a.id,
   tag: a.tag,
   type: a.type,
+  category: a.category || "Other",
   assigned_to: a.assignedTo,
   status: a.status,
   serial: a.serial
@@ -5027,7 +5448,31 @@ const taskSB = t => ({
   category: t.category,
   owner: t.owner,
   due_date: t.due,
-  status: t.status
+  status: t.status,
+  priority: t.priority == null ? null : Number(t.priority),
+  note: t.note || null,
+  source: t.source || null
+});
+const eqReqSB = r => ({
+  id: r.id,
+  employee_id: r.employeeId,
+  note: r.note,
+  status: r.status,
+  resolution: r.resolution || null,
+  linked_asset_id: r.linkedAssetId || null,
+  hr_reviewer_id: r.hrReviewerId || null,
+  hr_decision_at: r.hrDecisionAt ? new Date(r.hrDecisionAt).toISOString() : null,
+  hr_comment: r.hrComment || null,
+  cfo_id: r.cfoId || null,
+  cfo_decision_at: r.cfoDecisionAt ? new Date(r.cfoDecisionAt).toISOString() : null,
+  cfo_comment: r.cfoComment || null,
+  ceo_id: r.ceoId || null,
+  ceo_decision_at: r.ceoDecisionAt ? new Date(r.ceoDecisionAt).toISOString() : null,
+  ceo_comment: r.ceoComment || null,
+  admin_task_id: r.adminTaskId || null,
+  created_by: r.createdBy || null,
+  created_at: new Date(r.createdAt || Date.now()).toISOString(),
+  updated_at: new Date(r.updatedAt || Date.now()).toISOString()
 });
 const vendSB = v => ({
   id: v.id,
@@ -5121,6 +5566,7 @@ async function persistDb(prev, cur) {
   if (chg("leaveRequests")) jobs.push(sbUpsert("leave_requests", (cur.leaveRequests || []).map(leaveReqSB)));
   if (chg("leaveBalances")) jobs.push(sbUpsert("leave_balances", (cur.leaveBalances || []).map(leaveBalSB)));
   if (chg("policyQuestions")) jobs.push(sbUpsert("policy_questions", (cur.policyQuestions || []).map(policyQSB)));
+  if (chg("equipmentRequests")) jobs.push(sbUpsert("equipment_requests", (cur.equipmentRequests || []).map(eqReqSB)));
   if (chg("settings")) jobs.push(sbUpsert("app_settings", [{
     id: cur.settings._id || "default",
     approval_threshold: cur.settings.approvalThreshold,
@@ -5237,6 +5683,7 @@ function App() {
   }, [db.outbox]);
   const me = useMemo(() => db.users.find(u => u.id === meId), [db, meId]);
   const role = me?.role;
+  const myEmpId = useMemo(() => employeeIdForAppUser(db, meId), [db, meId]);
   const vName = id => db.vendors.find(v => v.id === id)?.name || "—";
   const update = fn => setDb(prev => {
     const next = clone(prev);
@@ -5544,8 +5991,15 @@ function App() {
     label: "Office & admin",
     icon: "building",
     group: "People",
-    roles: ["hr_manager", "admin"],
+    roles: ["hr_manager", "admin", "finance_director"],
     badge: db.adminTasks.filter(t => t.status === "Overdue").length
+  }, {
+    id: "equipment",
+    label: "Equipment requests",
+    icon: "clip",
+    group: "People",
+    roles: allR,
+    badge: (db.equipmentRequests || []).filter(r => (can(role, "review_equipment") && r.status === "Submitted") || (can(role, "approve_equipment_cfo") && role === "finance_director" && r.status === "Pending CFO Approval") || (can(role, "approve_equipment_ceo") && role === "ceo" && r.status === "Pending CEO Approval")).length
   }, {
     id: "reports",
     label: "Reports",
@@ -5579,7 +6033,7 @@ function App() {
     group: "Admin",
     roles: ["admin", "ceo"]
   }];
-  const VNAV = NAV.filter(n => role === "admin" || role === "ceo" || n.roles.includes(role));
+  const VNAV = NAV.filter(n => role === "admin" || role === "ceo" || n.roles.includes(role) || (n.id === "office" && myEmpId === "e10"));
   useEffect(() => {
     if (!VNAV.find(n => n.id === tab)) setTab(VNAV[0] ? VNAV[0].id : "master");
   }, [meId]);
@@ -5750,7 +6204,17 @@ function App() {
     db: db,
     update: update,
     nameOf: enameOf,
-    setModal: setModal
+    setModal: setModal,
+    role: role,
+    myEmpId: myEmpId
+  }), tab === "equipment" && /*#__PURE__*/React.createElement(EquipmentV, {
+    db: db,
+    update: update,
+    role: role,
+    me: me,
+    meId: meId,
+    myEmpId: myEmpId,
+    nameOf: enameOf
   }), tab === "leave" && /*#__PURE__*/React.createElement(LeaveTracker, {
     db: db,
     role: role,
