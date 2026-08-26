@@ -6,6 +6,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>*,:after,:before{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgba(59,130,246,.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }::backdrop{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgba(59,130,246,.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }/*! tailwindcss v3.4.17 | MIT License | https://tailwindcss.com*/*,:after,:before{box-sizing:border-box;border:0 solid #E5E5E5}:after,:before{--tw-content:""}:host,html{line-height:1.5;-webkit-text-size-adjust:100%;-moz-tab-size:4;-o-tab-size:4;tab-size:4;font-family:Poppins,ui-sans-serif,sans-serif;font-feature-settings:normal;font-variation-settings:normal;-webkit-tap-highlight-color:transparent}body{margin:0;line-height:inherit}hr{height:0;color:inherit;border-top-width:1px}abbr:where([title]){-webkit-text-decoration:underline dotted;text-decoration:underline dotted}h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit}a{color:inherit;text-decoration:inherit}b,strong{font-weight:bolder}code,kbd,pre,samp{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,Liberation Mono,Courier New,monospace;font-feature-settings:normal;font-variation-settings:normal;font-size:1em}small{font-size:80%}sub,sup{font-size:75%;line-height:0;position:relative;vertical-align:baseline}sub{bottom:-.25em}sup{top:-.5em}table{text-indent:0;border-color:inherit;border-collapse:collapse}button,input,optgroup,select,textarea{font-family:inherit;font-feature-settings:inherit;font-variation-settings:inherit;font-size:100%;font-weight:inherit;line-height:inherit;letter-spacing:inherit;color:inherit;margin:0;padding:0}button,select{text-transform:none}button,input:where([type=button]),input:where([type=reset]),input:where([type=submit]){-webkit-appearance:button;background-color:transparent;background-image:none}:-moz-focusring{outline:auto}:-moz-ui-invalid{box-shadow:none}progress{vertical-align:baseline}::-webkit-inner-spin-button,::-webkit-outer-spin-button{height:auto}[type=search]{-webkit-appearance:textfield;outline-offset:-2px}::-webkit-search-decoration{-webkit-appearance:none}::-webkit-file-upload-button{-webkit-appearance:button;font:inherit}summary{display:list-item}blockquote,dd,dl,figure,h1,h2,h3,h4,h5,h6,hr,p,pre{margin:0}fieldset{margin:0}fieldset,legend{padding:0}menu,ol,ul{list-style:none;margin:0;padding:0}dialog{padding:0}textarea{resize:vertical}input::-moz-placeholder,textarea::-moz-placeholder{opacity:1;color:#999999}input::placeholder,textarea::placeholder{opacity:1;color:#999999}[role=button],button{cursor:pointer}:disabled{cursor:default}audio,canvas,embed,iframe,img,object,svg,video{display:block;vertical-align:middle}img,video{max-width:100%;height:auto}[hidden]:where(:not([hidden=until-found])){display:none}.fixed{position:fixed}.absolute{position:absolute}.relative{position:relative}.sticky{position:sticky}.inset-0{inset:0}.-left-4{left:-1rem}.-left-\[11px\]{left:-11px}.-right-6{right:-1.5rem}.-right-8{right:-2rem}.-top-6{top:-1.5rem}.-top-8{top:-2rem}.bottom-0{bottom:0}.left-0{left:0}.right-0{right:0}.right-1{right:.25rem}.top-0{top:0}.top-1{top:.25rem}.top-1\/2{top:50%}.top-3{top:.75rem}.z-20{z-index:20}.z-30{z-index:30}.z-40{z-index:40}.mb-0\.5{margin-bottom:.125rem}.mb-1{margin-bottom:.25rem}.mb-2{margin-bottom:.5rem}.mb-2\.5{margin-bottom:.625rem}.mb-3{margin-bottom:.75rem}.mb-4{margin-bottom:1rem}.mt-0\.5{margin-top:.125rem}.mt-1{margin-top:.25rem}.mt-2{margin-top:.5rem}.mt-3{margin-top:.75rem}.mt-4{margin-top:1rem}.block{display:block}.inline-block{display:inline-block}.inline{display:inline}.flex{display:flex}.inline-flex{display:inline-flex}.table{display:table}.grid{display:grid}.hidden{display:none}.h-1{height:.25rem}.h-10{height:2.5rem}.h-14{height:3.5rem}.h-16{height:4rem}.h-2{height:.5rem}.h-2\.5{height:.625rem}.h-24{height:6rem}.h-4{height:1rem}.h-5{height:1.25rem}.h-6{height:1.5rem}.h-7{height:1.75rem}.h-9{height:2.25rem}.h-full{height:100%}.max-h-80{max-height:20rem}.max-h-\[55vh\]{max-height:55vh}.max-h-\[90vh\]{max-height:90vh}.min-h-\[200px\]{min-height:200px}.min-h-screen{min-height:100vh}.w-1{width:.25rem}.w-1\/4{width:25%}.w-10{width:2.5rem}.w-16{width:4rem}.w-2{width:.5rem}.w-2\.5{width:.625rem}.w-24{width:6rem}.w-28{width:7rem}.w-32{width:8rem}.w-4{width:1rem}.w-56{width:14rem}.w-6{width:1.5rem}.w-60{width:15rem}.w-7{width:1.75rem}.w-9{width:2.25rem}.w-96{width:24rem}.w-full{width:100%}.w-px{width:1px}.min-w-0{min-width:0}.min-w-4{min-width:1rem}.min-w-\[18px\]{min-width:18px}.max-w-2xl{max-width:42rem}.max-w-3xl{max-width:48rem}.max-w-4xl{max-width:56rem}.max-w-5xl{max-width:64rem}.max-w-6xl{max-width:72rem}.max-w-\[200px\]{max-width:200px}.max-w-md{max-width:28rem}.flex-1{flex:1 1 0%}.shrink-0{flex-shrink:0}.-translate-y-1\/2{--tw-translate-y:-50%;transform:translate(var(--tw-translate-x),var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))}.cursor-pointer{cursor:pointer}.grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}.grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}.grid-cols-5{grid-template-columns:repeat(5,minmax(0,1fr))}.flex-col{flex-direction:column}.flex-wrap{flex-wrap:wrap}.place-items-center{place-items:center}.items-start{align-items:flex-start}.items-center{align-items:center}.justify-end{justify-content:flex-end}.justify-center{justify-content:center}.justify-between{justify-content:space-between}.gap-1{gap:.25rem}.gap-1\.5{gap:.375rem}.gap-2{gap:.5rem}.gap-2\.5{gap:.625rem}.gap-3{gap:.75rem}.gap-4{gap:1rem}.gap-5{gap:1.25rem}.gap-x-6{-moz-column-gap:1.5rem;column-gap:1.5rem}.gap-x-8{-moz-column-gap:2rem;column-gap:2rem}.gap-y-1\.5{row-gap:.375rem}.gap-y-3{row-gap:.75rem}.space-y-1\.5>:not([hidden])~:not([hidden]){--tw-space-y-reverse:0;margin-top:calc(.375rem*(1 - var(--tw-space-y-reverse)));margin-bottom:calc(.375rem*var(--tw-space-y-reverse))}.space-y-2>:not([hidden])~:not([hidden]){--tw-space-y-reverse:0;margin-top:calc(.5rem*(1 - var(--tw-space-y-reverse)));margin-bottom:calc(.5rem*var(--tw-space-y-reverse))}.space-y-2\.5>:not([hidden])~:not([hidden]){--tw-space-y-reverse:0;margin-top:calc(.625rem*(1 - var(--tw-space-y-reverse)));margin-bottom:calc(.625rem*var(--tw-space-y-reverse))}.space-y-3>:not([hidden])~:not([hidden]){--tw-space-y-reverse:0;margin-top:calc(.75rem*(1 - var(--tw-space-y-reverse)));margin-bottom:calc(.75rem*var(--tw-space-y-reverse))}.space-y-4>:not([hidden])~:not([hidden]){--tw-space-y-reverse:0;margin-top:calc(1rem*(1 - var(--tw-space-y-reverse)));margin-bottom:calc(1rem*var(--tw-space-y-reverse))}.space-y-5>:not([hidden])~:not([hidden]){--tw-space-y-reverse:0;margin-top:calc(1.25rem*(1 - var(--tw-space-y-reverse)));margin-bottom:calc(1.25rem*var(--tw-space-y-reverse))}.divide-y>:not([hidden])~:not([hidden]){--tw-divide-y-reverse:0;border-top-width:calc(1px*(1 - var(--tw-divide-y-reverse)));border-bottom-width:calc(1px*var(--tw-divide-y-reverse))}.divide-neutral-100>:not([hidden])~:not([hidden]){--tw-divide-opacity:1;border-color:rgb(245 245 245/var(--tw-divide-opacity,1))}.divide-neutral-50>:not([hidden])~:not([hidden]){--tw-divide-opacity:1;border-color:rgb(250 250 250/var(--tw-divide-opacity,1))}.overflow-auto{overflow:auto}.overflow-hidden,.truncate{overflow:hidden}.truncate{text-overflow:ellipsis}.truncate,.whitespace-nowrap{white-space:nowrap}.rounded{border-radius:.25rem}.rounded-2xl{border-radius:1rem}.rounded-full{border-radius:9999px}.rounded-lg{border-radius:.5rem}.rounded-xl{border-radius:.75rem}.rounded-r{border-top-right-radius:.25rem;border-bottom-right-radius:.25rem}.rounded-t-lg{border-top-left-radius:.5rem;border-top-right-radius:.5rem}.border{border-width:1px}.border-b{border-bottom-width:1px}.border-t{border-top-width:1px}.border-t-2{border-top-width:2px}.border-black\/5{border-color:rgba(0,0,0,.05)}.border-neutral-100{--tw-border-opacity:1;border-color:rgb(242 242 242/var(--tw-border-opacity,1))}.border-neutral-200{--tw-border-opacity:1;border-color:rgb(229 229 229/var(--tw-border-opacity,1))}.border-white\/10{border-color:hsla(0,0%,100%,.1)}.bg-\[\#0B0B0C\]{--tw-bg-opacity:1;background-color:rgb(0 0 0/var(--tw-bg-opacity,1))}.bg-amber-100{--tw-bg-opacity:1;background-color:rgb(253 238 217/var(--tw-bg-opacity,1))}.bg-amber-50{--tw-bg-opacity:1;background-color:rgb(254 248 240/var(--tw-bg-opacity,1))}.bg-amber-500{--tw-bg-opacity:1;background-color:rgb(244 139 0/var(--tw-bg-opacity,1))}.bg-black\/40{background-color:rgba(0,0,0,.4)}.bg-blue-50{--tw-bg-opacity:1;background-color:rgb(242 250 254/var(--tw-bg-opacity,1))}.bg-cyan-50{--tw-bg-opacity:1;background-color:rgb(240 253 253/var(--tw-bg-opacity,1))}.bg-cyan-600{--tw-bg-opacity:1;background-color:rgb(0 202 202/var(--tw-bg-opacity,1))}.bg-emerald-100{--tw-bg-opacity:1;background-color:rgb(217 250 236/var(--tw-bg-opacity,1))}.bg-emerald-50{--tw-bg-opacity:1;background-color:rgb(240 253 248/var(--tw-bg-opacity,1))}.bg-emerald-500{--tw-bg-opacity:1;background-color:rgb(0 220 130/var(--tw-bg-opacity,1))}.bg-emerald-600{--tw-bg-opacity:1;background-color:rgb(0 194 114/var(--tw-bg-opacity,1))}.bg-neutral-100{--tw-bg-opacity:1;background-color:rgb(242 242 242/var(--tw-bg-opacity,1))}.bg-neutral-200{--tw-bg-opacity:1;background-color:rgb(229 229 229/var(--tw-bg-opacity,1))}.bg-neutral-300{--tw-bg-opacity:1;background-color:rgb(204 204 204/var(--tw-bg-opacity,1))}.bg-neutral-50{--tw-bg-opacity:1;background-color:rgb(255 255 255/var(--tw-bg-opacity,1))}.bg-neutral-50\/70{background-color:hsla(0,0%,95%,.7)}.bg-neutral-900{--tw-bg-opacity:1;background-color:rgb(25 25 25/var(--tw-bg-opacity,1))}.bg-rose-100{--tw-bg-opacity:1;background-color:rgb(255 232 227/var(--tw-bg-opacity,1))}.bg-rose-50{--tw-bg-opacity:1;background-color:rgb(255 246 244/var(--tw-bg-opacity,1))}.bg-rose-500{--tw-bg-opacity:1;background-color:rgb(255 100 70/var(--tw-bg-opacity,1))}.bg-rose-600{--tw-bg-opacity:1;background-color:rgb(224 88 62/var(--tw-bg-opacity,1))}.bg-transparent{background-color:transparent}.bg-violet-50{--tw-bg-opacity:1;background-color:rgb(255 247 249/var(--tw-bg-opacity,1))}.bg-white{--tw-bg-opacity:1;background-color:rgb(255 255 255/var(--tw-bg-opacity,1))}.bg-white\/60{background-color:hsla(0,0%,100%,.6)}.bg-white\/80{background-color:hsla(0,0%,100%,.8)}.p-2{padding:.5rem}.p-2\.5{padding:.625rem}.p-3{padding:.75rem}.p-4{padding:1rem}.p-5{padding:1.25rem}.p-6{padding:1.5rem}.p-8{padding:2rem}.px-1{padding-left:.25rem;padding-right:.25rem}.px-1\.5{padding-left:.375rem;padding-right:.375rem}.px-2{padding-left:.5rem;padding-right:.5rem}.px-2\.5{padding-left:.625rem;padding-right:.625rem}.px-3{padding-left:.75rem;padding-right:.75rem}.px-3\.5{padding-left:.875rem;padding-right:.875rem}.px-4{padding-left:1rem;padding-right:1rem}.px-5{padding-left:1.25rem;padding-right:1.25rem}.px-6{padding-left:1.5rem;padding-right:1.5rem}.py-0\.5{padding-top:.125rem;padding-bottom:.125rem}.py-1{padding-top:.25rem;padding-bottom:.25rem}.py-1\.5{padding-top:.375rem;padding-bottom:.375rem}.py-10{padding-top:2.5rem;padding-bottom:2.5rem}.py-2{padding-top:.5rem;padding-bottom:.5rem}.py-2\.5{padding-top:.625rem;padding-bottom:.625rem}.py-3{padding-top:.75rem;padding-bottom:.75rem}.py-4{padding-top:1rem;padding-bottom:1rem}.py-5{padding-top:1.25rem;padding-bottom:1.25rem}.py-6{padding-top:1.5rem;padding-bottom:1.5rem}.py-8{padding-top:2rem;padding-bottom:2rem}.pb-1{padding-bottom:.25rem}.pb-4{padding-bottom:1rem}.pl-4{padding-left:1rem}.pt-1{padding-top:.25rem}.pt-3{padding-top:.75rem}.text-left{text-align:left}.text-center{text-align:center}.text-right{text-align:right}.font-display{font-family:Poppins,ui-sans-serif,sans-serif}.text-2xl{font-size:1.5rem;line-height:2rem}.text-3xl{font-size:1.875rem;line-height:2.25rem}.text-\[10px\]{font-size:10px}.text-\[11px\]{font-size:11px}.text-\[12px\]{font-size:12px}.text-\[13px\]{font-size:13px}.text-\[15px\]{font-size:15px}.text-lg{font-size:1.125rem;line-height:1.75rem}.text-sm{font-size:.875rem;line-height:1.25rem}.text-xl{font-size:1.25rem;line-height:1.75rem}.text-xs{font-size:.75rem;line-height:1rem}.font-bold{font-weight:700}.font-medium{font-weight:500}.font-normal{font-weight:400}.font-semibold{font-weight:600}.uppercase{text-transform:uppercase}.capitalize{text-transform:capitalize}.italic{font-style:italic}.leading-snug{line-height:1.375}.leading-tight{line-height:1.25}.tracking-tight{letter-spacing:-.025em}.tracking-wide{letter-spacing:.025em}.tracking-widest{letter-spacing:.1em}.text-amber-600{--tw-text-opacity:1;color:rgb(215 122 0/var(--tw-text-opacity,1))}.text-amber-700{--tw-text-opacity:1;color:rgb(176 100 0/var(--tw-text-opacity,1))}.text-amber-800{--tw-text-opacity:1;color:rgb(142 81 0/var(--tw-text-opacity,1))}.text-black{--tw-text-opacity:1;color:rgb(0 0 0/var(--tw-text-opacity,1))}.text-blue-600{--tw-text-opacity:1;color:rgb(35 150 211/var(--tw-text-opacity,1))}.text-blue-700{--tw-text-opacity:1;color:rgb(29 122 173/var(--tw-text-opacity,1))}.text-cyan-700{--tw-text-opacity:1;color:rgb(0 165 165/var(--tw-text-opacity,1))}.text-emerald-500{--tw-text-opacity:1;color:rgb(0 220 130/var(--tw-text-opacity,1))}.text-emerald-600{--tw-text-opacity:1;color:rgb(0 194 114/var(--tw-text-opacity,1))}.text-emerald-700{--tw-text-opacity:1;color:rgb(0 158 94/var(--tw-text-opacity,1))}.text-neutral-300{--tw-text-opacity:1;color:rgb(204 204 204/var(--tw-text-opacity,1))}.text-neutral-400{--tw-text-opacity:1;color:rgb(178 178 178/var(--tw-text-opacity,1))}.text-neutral-500{--tw-text-opacity:1;color:rgb(153 153 153/var(--tw-text-opacity,1))}.text-neutral-600{--tw-text-opacity:1;color:rgb(127 127 127/var(--tw-text-opacity,1))}.text-neutral-700{--tw-text-opacity:1;color:rgb(102 102 102/var(--tw-text-opacity,1))}.text-neutral-800{--tw-text-opacity:1;color:rgb(76 76 76/var(--tw-text-opacity,1))}.text-neutral-900{--tw-text-opacity:1;color:rgb(25 25 25/var(--tw-text-opacity,1))}.text-rose-400{--tw-text-opacity:1;color:rgb(255 143 122/var(--tw-text-opacity,1))}.text-rose-500{--tw-text-opacity:1;color:rgb(255 100 70/var(--tw-text-opacity,1))}.text-rose-600{--tw-text-opacity:1;color:rgb(224 88 62/var(--tw-text-opacity,1))}.text-rose-700{--tw-text-opacity:1;color:rgb(184 72 50/var(--tw-text-opacity,1))}.text-violet-700{--tw-text-opacity:1;color:rgb(180 86 114/var(--tw-text-opacity,1))}.text-white{--tw-text-opacity:1;color:rgb(255 255 255/var(--tw-text-opacity,1))}.underline{text-decoration-line:underline}.line-through{text-decoration-line:line-through}.decoration-neutral-300{text-decoration-color:#CCCCCC}.opacity-20{opacity:.2}.opacity-30{opacity:.3}.opacity-60{opacity:.6}.shadow-2xl{--tw-shadow:0 25px 50px -12px rgba(0,0,0,.25);--tw-shadow-colored:0 25px 50px -12px var(--tw-shadow-color)}.shadow-2xl,.shadow-sm{box-shadow:var(--tw-ring-offset-shadow,0 0 #0000),var(--tw-ring-shadow,0 0 #0000),var(--tw-shadow)}.shadow-sm{--tw-shadow:0 1px 2px 0 rgba(0,0,0,.05);--tw-shadow-colored:0 1px 2px 0 var(--tw-shadow-color)}.shadow-xl{--tw-shadow:0 20px 25px -5px rgba(0,0,0,.1),0 8px 10px -6px rgba(0,0,0,.1);--tw-shadow-colored:0 20px 25px -5px var(--tw-shadow-color),0 8px 10px -6px var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow,0 0 #0000),var(--tw-ring-shadow,0 0 #0000),var(--tw-shadow)}.ring-1{--tw-ring-offset-shadow:var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);--tw-ring-shadow:var(--tw-ring-inset) 0 0 0 calc(1px + var(--tw-ring-offset-width)) var(--tw-ring-color);box-shadow:var(--tw-ring-offset-shadow),var(--tw-ring-shadow),var(--tw-shadow,0 0 #0000)}.ring-inset{--tw-ring-inset:inset}.ring-amber-200{--tw-ring-opacity:1;--tw-ring-color:rgb(251 218 173/var(--tw-ring-opacity,1))}.ring-black\/10{--tw-ring-color:rgba(0,0,0,.1)}.ring-black\/5{--tw-ring-color:rgba(0,0,0,.05)}.ring-blue-200{--tw-ring-opacity:1;--tw-ring-color:rgb(186 228 250/var(--tw-ring-opacity,1))}.ring-cyan-200{--tw-ring-opacity:1;--tw-ring-color:rgb(173 247 247/var(--tw-ring-opacity,1))}.ring-emerald-200{--tw-ring-opacity:1;--tw-ring-color:rgb(173 244 215/var(--tw-ring-opacity,1))}.ring-neutral-200{--tw-ring-opacity:1;--tw-ring-color:rgb(229 229 229/var(--tw-ring-opacity,1))}.ring-neutral-900{--tw-ring-opacity:1;--tw-ring-color:rgb(25 25 25/var(--tw-ring-opacity,1))}.ring-rose-200{--tw-ring-opacity:1;--tw-ring-color:rgb(255 205 196/var(--tw-ring-opacity,1))}.ring-violet-200{--tw-ring-opacity:1;--tw-ring-color:rgb(253 212 224/var(--tw-ring-opacity,1))}.blur-2xl{--tw-blur:blur(40px)}.blur-2xl,.blur-xl{filter:var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow)}.blur-xl{--tw-blur:blur(24px)}.filter{filter:var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow)}.backdrop-blur{--tw-backdrop-blur:blur(8px);-webkit-backdrop-filter:var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);backdrop-filter:var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia)}.transition{transition-property:color,background-color,border-color,text-decoration-color,fill,stroke,opacity,box-shadow,transform,filter,-webkit-backdrop-filter;transition-property:color,background-color,border-color,text-decoration-color,fill,stroke,opacity,box-shadow,transform,filter,backdrop-filter;transition-property:color,background-color,border-color,text-decoration-color,fill,stroke,opacity,box-shadow,transform,filter,backdrop-filter,-webkit-backdrop-filter;transition-timing-function:cubic-bezier(.4,0,.2,1);transition-duration:.15s}:root{--iris:linear-gradient(115deg,#28AAF0,#00E5E5 50%,#00DC82)}body,html{font-family:Poppins,ui-sans-serif,system-ui,sans-serif;margin:0;background:#F2F2F2}.font-display{font-family:Poppins,sans-serif}.iris,.iris-text{background:var(--iris)}.iris-text{-webkit-background-clip:text;background-clip:text;color:transparent}.iris-ring{position:relative}::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:#CCCCCC;border-radius:9px}.hover\:border-neutral-300:hover{--tw-border-opacity:1;border-color:rgb(204 204 204/var(--tw-border-opacity,1))}.hover\:bg-cyan-700:hover{--tw-bg-opacity:1;background-color:rgb(0 165 165/var(--tw-bg-opacity,1))}.hover\:bg-emerald-700:hover{--tw-bg-opacity:1;background-color:rgb(0 158 94/var(--tw-bg-opacity,1))}.hover\:bg-neutral-100:hover{--tw-bg-opacity:1;background-color:rgb(242 242 242/var(--tw-bg-opacity,1))}.hover\:bg-neutral-50:hover{--tw-bg-opacity:1;background-color:rgb(255 255 255/var(--tw-bg-opacity,1))}.hover\:bg-neutral-50\/60:hover{background-color:hsla(0,0%,95%,.6)}.hover\:bg-neutral-700:hover{--tw-bg-opacity:1;background-color:rgb(102 102 102/var(--tw-bg-opacity,1))}.hover\:bg-rose-50:hover{--tw-bg-opacity:1;background-color:rgb(255 246 244/var(--tw-bg-opacity,1))}.hover\:bg-rose-700:hover{--tw-bg-opacity:1;background-color:rgb(184 72 50/var(--tw-bg-opacity,1))}.hover\:text-black:hover{--tw-text-opacity:1;color:rgb(0 0 0/var(--tw-text-opacity,1))}.hover\:text-neutral-200:hover{--tw-text-opacity:1;color:rgb(229 229 229/var(--tw-text-opacity,1))}.hover\:text-neutral-600:hover{--tw-text-opacity:1;color:rgb(127 127 127/var(--tw-text-opacity,1))}.hover\:text-neutral-700:hover{--tw-text-opacity:1;color:rgb(102 102 102/var(--tw-text-opacity,1))}.hover\:text-neutral-800:hover{--tw-text-opacity:1;color:rgb(76 76 76/var(--tw-text-opacity,1))}.hover\:text-neutral-900:hover{--tw-text-opacity:1;color:rgb(25 25 25/var(--tw-text-opacity,1))}.hover\:text-rose-600:hover{--tw-text-opacity:1;color:rgb(224 88 62/var(--tw-text-opacity,1))}.hover\:underline:hover{text-decoration-line:underline}.hover\:ring-black\/10:hover{--tw-ring-color:rgba(0,0,0,.1)}.hover\:brightness-95:hover{--tw-brightness:brightness(.95);filter:var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow)}.focus\:border-neutral-400:focus{--tw-border-opacity:1;border-color:rgb(178 178 178/var(--tw-border-opacity,1))}.focus\:outline-none:focus{outline:2px solid transparent;outline-offset:2px}.focus\:ring-2:focus{--tw-ring-offset-shadow:var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);--tw-ring-shadow:var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color);box-shadow:var(--tw-ring-offset-shadow),var(--tw-ring-shadow),var(--tw-shadow,0 0 #0000)}.focus\:ring-neutral-900\/10:focus{--tw-ring-color:hsla(0,0%,9%,.1)}.disabled\:opacity-40:disabled{opacity:.4}@media (min-width:768px){.md\:grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}.md\:grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}.md\:grid-cols-4{grid-template-columns:repeat(4,minmax(0,1fr))}.md\:grid-cols-5{grid-template-columns:repeat(5,minmax(0,1fr))}.md\:grid-cols-6{grid-template-columns:repeat(6,minmax(0,1fr))}.md\:text-3xl{font-size:1.875rem;line-height:2.25rem}}@media (min-width:1024px){.lg\:grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}.lg\:grid-cols-4{grid-template-columns:repeat(4,minmax(0,1fr))}}</style></head>
 <body><div id="root"></div>
 <script>/**
@@ -741,6 +743,131 @@ const fmtDT = ts => new Date(ts).toLocaleString("en-GB", {
   hour: "2-digit",
   minute: "2-digit"
 });
+/* ================= Report export toolkit =================
+   Shared by every tabular report in the app so "export to CSV/Excel/PDF" behaves identically
+   everywhere. A "column" is { label, key } or { label, value: row => cell }. */
+function reportCellValue(col, row) {
+  const v = typeof col.value === "function" ? col.value(row) : row[col.key];
+  return v == null ? "" : v;
+}
+function csvCell(v) {
+  const s = String(v);
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function rowsToCSV(columns, rows) {
+  const header = columns.map(c => csvCell(c.label)).join(",");
+  const body = rows.map(r => columns.map(c => csvCell(reportCellValue(c, r))).join(",")).join("\n");
+  return header + (rows.length ? "\n" + body : "");
+}
+function downloadBlob(content, filename, mime) {
+  const blob = new Blob([content], {
+    type: mime
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function exportReportCSV(columns, rows, filename) {
+  downloadBlob(rowsToCSV(columns, rows), filename.endsWith(".csv") ? filename : filename + ".csv", "text/csv;charset=utf-8;");
+}
+function exportReportXLSX(columns, rows, filename, sheetName) {
+  if (!window.XLSX) return;
+  const aoa = [columns.map(c => c.label), ...rows.map(r => columns.map(c => reportCellValue(c, r)))];
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws["!cols"] = columns.map(c => ({
+    wch: c.wch || 16
+  }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, (sheetName || "Report").slice(0, 31));
+  XLSX.writeFile(wb, filename.endsWith(".xlsx") ? filename : filename + ".xlsx");
+}
+function exportReportPDF(columns, rows, filename, title) {
+  if (!window.jspdf || !window.jspdf.jsPDF) return;
+  const {
+    jsPDF
+  } = window.jspdf;
+  const doc = new jsPDF({
+    orientation: columns.length > 5 ? "landscape" : "portrait", unit: "pt"
+  });
+  doc.setFontSize(14);
+  doc.text(title || "Report", 40, 40);
+  doc.setFontSize(9);
+  doc.setTextColor(120);
+  doc.text("Exported " + new Date().toLocaleString(), 40, 56);
+  doc.setTextColor(0);
+  const head = [columns.map(c => c.label)];
+  const body = rows.map(r => columns.map(c => String(reportCellValue(c, r))));
+  if (doc.autoTable) {
+    doc.autoTable({
+      head, body, startY: 70, styles: {
+        fontSize: 8, cellPadding: 4
+      }, headStyles: {
+        fillColor: [25, 25, 25]
+      }, margin: {
+        left: 40, right: 40
+      }
+    });
+  } else {
+    let y = 80;
+    doc.setFontSize(8);
+    doc.text(head[0].join(" | "), 40, y);
+    body.forEach(row => {
+      y += 14;
+      if (y > 760) {
+        doc.addPage();
+        y = 40;
+      }
+      doc.text(row.join(" | ").slice(0, 140), 40, y);
+    });
+  }
+  doc.save(filename.endsWith(".pdf") ? filename : filename + ".pdf");
+}
+/* Export toolbar — three buttons, always available on every report. rows is the CURRENTLY FILTERED
+   set (filters are applied by the caller before rows reach here), so exports always match what's
+   on screen. */
+function ExportBar({
+  columns, rows, filename, title, empty
+}) {
+  const E = React.createElement;
+  const disabled = !rows || !rows.length;
+  const btn = (label, onClick) => E("button", {
+    onClick, disabled,
+    className: "text-[11px] px-2.5 py-1 rounded-lg border border-neutral-200 hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed"
+  }, label);
+  return E("div", {
+    className: "flex items-center gap-1.5 flex-wrap"
+  }, disabled && empty ? E("span", {
+    className: "text-[11px] text-neutral-400 mr-1"
+  }, empty) : null, btn("Export CSV", () => exportReportCSV(columns, rows, filename)), btn("Export Excel", () => exportReportXLSX(columns, rows, filename, title)), btn("Export PDF", () => exportReportPDF(columns, rows, filename, title)));
+}
+/* Small text-search box reused by every report's filter row. */
+function SearchBox({
+  value, onChange, placeholder
+}) {
+  const E = React.createElement;
+  return E("input", {
+    className: "text-[12px] border border-neutral-200 rounded-lg px-2.5 py-1.5 w-full sm:w-56",
+    value: value || "", placeholder: placeholder || "Search…",
+    onChange: ev => onChange(ev.target.value)
+  });
+}
+/* Reusable "no filters match" / result-count line, shown above a filtered report table. */
+function FilterMeta({
+  shown, total, onClear
+}) {
+  const E = React.createElement;
+  if (shown === total) return null;
+  return E("div", {
+    className: "text-[11px] text-neutral-400 flex items-center gap-2"
+  }, shown, " of ", total, " shown", E("button", {
+    onClick: onClear, className: "underline hover:text-neutral-600"
+  }, "clear filters"));
+}
 function alertLevel(r) {
   if (!r.dueDate || !OPEN_STATUSES.includes(r.status)) return null;
   const due = parse(r.dueDate),
@@ -2409,9 +2536,64 @@ function FinanceTurnaround({
   };
   const nearTerm = items.filter(i => i.category.startsWith("Near-term"));
   const structural = items.filter(i => i.category.startsWith("Structural"));
+  const snapshotExportCols = [{
+    label: "Period", value: s => s.period_label
+  }, {
+    label: "Revenue", value: s => s.revenue
+  }, {
+    label: "Gross profit", value: s => s.gross_profit
+  }, {
+    label: "G&A expense", value: s => s.ga_exp
+  }, {
+    label: "Profit before tax", value: s => s.profit_before_tax
+  }, {
+    label: "Current assets", value: s => s.current_assets
+  }, {
+    label: "Current liabilities", value: s => s.current_liabilities
+  }, {
+    label: "AR gross", value: s => s.ar_gross
+  }, {
+    label: "AR provision", value: s => s.ar_provision
+  }, {
+    label: "Trade payables", value: s => s.trade_payables
+  }, {
+    label: "YouGov payable", value: s => s.yougov_payable
+  }];
+  const actionItemExportCols = [{
+    label: "Category", value: i => i.category
+  }, {
+    label: "Title", value: i => i.title
+  }, {
+    label: "Owner", value: i => i.owner
+  }, {
+    label: "Baseline", value: i => i.baseline_label
+  }, {
+    label: "Current", value: i => i.current_label
+  }, {
+    label: "Target", value: i => i.target_label
+  }, {
+    label: "Status", value: i => i.status
+  }, {
+    label: "Due", value: i => i.due_date ? fmtDate(i.due_date) : ""
+  }];
+  const exportToolbar = E("div", {
+    className: "flex flex-wrap items-center justify-end gap-4 bg-white rounded-2xl ring-1 ring-black/5 shadow-sm px-4 py-2.5"
+  }, E("div", {
+    className: "flex items-center gap-1.5"
+  }, E("span", {
+    className: "text-[11px] text-neutral-400 mr-1"
+  }, "Snapshot history:"), ExportBar({
+    columns: snapshotExportCols, rows: snaps, filename: "financial_snapshots", title: "Financial snapshot history", empty: "no snapshots"
+  })), E("div", {
+    className: "flex items-center gap-1.5"
+  }, E("span", {
+    className: "text-[11px] text-neutral-400 mr-1"
+  }, "Action tracker:"), ExportBar({
+    columns: actionItemExportCols, rows: items, filename: "turnaround_action_items", title: "Turnaround action tracker", empty: "no action items"
+  })));
   return E("div", {
     className: "space-y-6 max-w-6xl"
-  }, E("div", null, E("div", {
+  }, exportToolbar, E("div", null, E("div", {
     className: "text-[11px] uppercase tracking-widest text-neutral-400 mb-2 font-medium"
   }, "Financial health — ", latest.period_label, prevSnap ? ` vs ${prevSnap.period_label}` : ""), E("div", {
     className: "grid grid-cols-2 lg:grid-cols-4 gap-4"
@@ -4501,121 +4683,188 @@ function HRCompliance({
   db,
   hrAlerts
 }) {
+  const E = React.createElement;
+  const [q, setQ] = useState("");
+  const [deptF, setDeptF] = useState("All");
   const allC = [];
   db.employees.forEach(e => (e.contracts || []).forEach(c => allC.push({
     ...c,
     emp: e.name,
     dept: e.dept
   })));
-  return /*#__PURE__*/React.createElement("div", {
-    className: "max-w-6xl space-y-5"
-  }, /*#__PURE__*/React.createElement("div", {
+  const depts = ["All", ...Array.from(new Set(db.employees.map(e => e.dept))).sort()];
+  const ql = q.trim().toLowerCase();
+  const filteredC = allC.filter(c => (deptF === "All" || c.dept === deptF) && (!ql || c.emp.toLowerCase().includes(ql) || (c.type || "").toLowerCase().includes(ql)));
+  const allCompliance = db.employees.flatMap(e => (e.compliance || []).map(c => ({
+    ...c, emp: e.name, dept: e.dept
+  })));
+  const filteredCompliance = allCompliance.filter(c => (deptF === "All" || c.dept === deptF) && (!ql || c.emp.toLowerCase().includes(ql) || (c.item || "").toLowerCase().includes(ql)));
+  const filterBar = E(Card, {
+    className: "p-4"
+  }, E("div", {
+    className: "flex flex-wrap items-center gap-2"
+  }, SearchBox({
+    value: q, onChange: setQ, placeholder: "Search employee, type, item…"
+  }), E("select", {
+    className: "text-[12px] border border-neutral-200 rounded-lg px-2 py-1.5", value: deptF, onChange: ev => setDeptF(ev.target.value)
+  }, depts.map(d => E("option", {
+    key: d, value: d
+  }, d === "All" ? "All departments" : d))), FilterMeta({
+    shown: filteredC.length + filteredCompliance.length, total: allC.length + allCompliance.length, onClear: () => {
+      setQ("");
+      setDeptF("All");
+    }
+  })));
+  const statsRow = E("div", {
     className: "grid md:grid-cols-3 gap-3"
-  }, /*#__PURE__*/React.createElement(Card, {
+  }, E(Card, {
     className: "p-4"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, E("div", {
     className: "text-[11px] uppercase tracking-wide text-neutral-400"
-  }, "Active contracts"), /*#__PURE__*/React.createElement("div", {
-    className: "font-display text-2xl mt-1",
-    style: {
+  }, "Active contracts"), E("div", {
+    className: "font-display text-2xl mt-1", style: {
       fontWeight: 800
     }
-  }, allC.filter(c => c.status === "Active").length)), /*#__PURE__*/React.createElement(Card, {
+  }, allC.filter(c => c.status === "Active").length)), E(Card, {
     className: "p-4"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, E("div", {
     className: "text-[11px] uppercase tracking-wide text-neutral-400"
-  }, "Renewals ≤60d"), /*#__PURE__*/React.createElement("div", {
-    className: "font-display text-2xl mt-1 text-amber-700",
-    style: {
+  }, "Renewals ≤60d"), E("div", {
+    className: "font-display text-2xl mt-1 text-amber-700", style: {
       fontWeight: 800
     }
-  }, hrAlerts.filter(a => a.kind === "contract").length)), /*#__PURE__*/React.createElement(Card, {
+  }, hrAlerts.filter(a => a.kind === "contract").length)), E(Card, {
     className: "p-4"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, E("div", {
     className: "text-[11px] uppercase tracking-wide text-neutral-400"
-  }, "Compliance ≤30d"), /*#__PURE__*/React.createElement("div", {
-    className: "font-display text-2xl mt-1 text-rose-700",
-    style: {
+  }, "Compliance ≤30d"), E("div", {
+    className: "font-display text-2xl mt-1 text-rose-700", style: {
       fontWeight: 800
     }
-  }, hrAlerts.filter(a => a.kind === "compliance").length))), /*#__PURE__*/React.createElement(Card, {
-    className: "overflow-hidden"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "px-4 py-3 border-b border-neutral-100 font-display text-sm uppercase tracking-wide",
-    style: {
+  }, hrAlerts.filter(a => a.kind === "compliance").length)));
+  const contractsHead = E("div", {
+    className: "px-4 py-3 border-b border-neutral-100 flex items-center justify-between flex-wrap gap-2"
+  }, E("div", {
+    className: "font-display text-sm uppercase tracking-wide", style: {
       fontWeight: 700
     }
-  }, "Contracts"), /*#__PURE__*/React.createElement("table", {
-    className: "w-full text-sm"
-  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
-    className: "text-left text-[11px] uppercase text-neutral-400 border-b border-neutral-100 bg-neutral-50/70"
-  }, /*#__PURE__*/React.createElement("th", {
-    className: "px-4 py-2.5 font-medium"
-  }, "Employee"), /*#__PURE__*/React.createElement("th", {
-    className: "px-4 py-2.5 font-medium"
-  }, "Type"), /*#__PURE__*/React.createElement("th", {
-    className: "px-4 py-2.5 font-medium"
-  }, "Start"), /*#__PURE__*/React.createElement("th", {
-    className: "px-4 py-2.5 font-medium"
-  }, "End"), /*#__PURE__*/React.createElement("th", {
-    className: "px-4 py-2.5 font-medium text-right"
-  }, "Salary"))), /*#__PURE__*/React.createElement("tbody", {
-    className: "divide-y divide-neutral-50"
-  }, allC.map((c, i) => {
+  }, "Contracts"), ExportBar({
+    columns: [{
+      label: "Employee", value: c => c.emp
+    }, {
+      label: "Department", value: c => c.dept
+    }, {
+      label: "Type", value: c => c.type
+    }, {
+      label: "Start", value: c => shortDate(c.start)
+    }, {
+      label: "End", value: c => c.end ? shortDate(c.end) : "Indefinite"
+    }, {
+      label: "Salary", value: c => c.salary
+    }], rows: filteredC, filename: "contracts", title: "Contracts", empty: "no contracts"
+  }));
+  const contractsBody = filteredC.map((c, i) => {
     const dd = c.end ? daysTo(c.end) : null;
-    return /*#__PURE__*/React.createElement("tr", {
-      key: i,
-      className: "hover:bg-neutral-50/60"
-    }, /*#__PURE__*/React.createElement("td", {
+    return E("tr", {
+      key: i, className: "hover:bg-neutral-50/60"
+    }, E("td", {
       className: "px-4 py-3 font-medium"
-    }, c.emp, /*#__PURE__*/React.createElement("div", {
+    }, c.emp, E("div", {
       className: "text-[11px] text-neutral-400 font-normal"
-    }, c.dept)), /*#__PURE__*/React.createElement("td", {
+    }, c.dept)), E("td", {
       className: "px-4 py-3 text-neutral-600"
-    }, c.type), /*#__PURE__*/React.createElement("td", {
+    }, c.type), E("td", {
       className: "px-4 py-3 text-neutral-500"
-    }, shortDate(c.start)), /*#__PURE__*/React.createElement("td", {
+    }, shortDate(c.start)), E("td", {
       className: "px-4 py-3"
-    }, c.end ? /*#__PURE__*/React.createElement("span", {
+    }, c.end ? E("span", {
       className: dd <= 60 ? "text-amber-700 font-medium" : "text-neutral-500"
-    }, shortDate(c.end), dd <= 60 && dd >= 0 ? ` · ${dd}d` : "") : /*#__PURE__*/React.createElement("span", {
+    }, shortDate(c.end), dd <= 60 && dd >= 0 ? ` · ${dd}d` : "") : E("span", {
       className: "text-neutral-400"
-    }, "Indefinite")), /*#__PURE__*/React.createElement("td", {
+    }, "Indefinite")), E("td", {
       className: "px-4 py-3 text-right font-medium"
     }, money(c.salary)));
-  })))), /*#__PURE__*/React.createElement(Card, {
+  });
+  const contractsTable = E("table", {
+    className: "w-full text-sm"
+  }, E("thead", null, E("tr", {
+    className: "text-left text-[11px] uppercase text-neutral-400 border-b border-neutral-100 bg-neutral-50/70"
+  }, E("th", {
+    className: "px-4 py-2.5 font-medium"
+  }, "Employee"), E("th", {
+    className: "px-4 py-2.5 font-medium"
+  }, "Type"), E("th", {
+    className: "px-4 py-2.5 font-medium"
+  }, "Start"), E("th", {
+    className: "px-4 py-2.5 font-medium"
+  }, "End"), E("th", {
+    className: "px-4 py-2.5 font-medium text-right"
+  }, "Salary"))), E("tbody", {
+    className: "divide-y divide-neutral-50"
+  }, contractsBody));
+  const contractsCard = E(Card, {
     className: "overflow-hidden"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "px-4 py-3 border-b border-neutral-100 font-display text-sm uppercase tracking-wide",
-    style: {
+  }, contractsHead, contractsTable);
+  const complianceHead = E("div", {
+    className: "px-4 py-3 border-b border-neutral-100 flex items-center justify-between flex-wrap gap-2"
+  }, E("div", {
+    className: "font-display text-sm uppercase tracking-wide", style: {
       fontWeight: 700
     }
-  }, "Compliance register"), /*#__PURE__*/React.createElement("table", {
-    className: "w-full text-sm"
-  }, /*#__PURE__*/React.createElement("tbody", {
-    className: "divide-y divide-neutral-50"
-  }, db.employees.flatMap(e => (e.compliance || []).map((c, i) => {
+  }, "Compliance register"), ExportBar({
+    columns: [{
+      label: "Employee", value: c => c.emp
+    }, {
+      label: "Department", value: c => c.dept
+    }, {
+      label: "Item", value: c => c.item
+    }, {
+      label: "Due", value: c => fmtDateY(c.due)
+    }, {
+      label: "Status", value: c => {
+        const dd = daysTo(c.due);
+        return dd < 0 ? "Overdue" : dd <= 30 ? dd + "d" : "Upcoming";
+      }
+    }], rows: filteredCompliance, filename: "compliance_register", title: "Compliance register", empty: "no compliance items"
+  }));
+  const complianceBody = filteredCompliance.map((c, i) => {
     const dd = daysTo(c.due);
-    return /*#__PURE__*/React.createElement("tr", {
-      key: e.id + i,
-      className: "hover:bg-neutral-50/60"
-    }, /*#__PURE__*/React.createElement("td", {
+    return E("tr", {
+      key: i, className: "hover:bg-neutral-50/60"
+    }, E("td", {
       className: "px-4 py-2.5 font-medium w-1/4"
-    }, e.name), /*#__PURE__*/React.createElement("td", {
+    }, c.emp), E("td", {
       className: "px-4 py-2.5 text-neutral-600"
-    }, c.item), /*#__PURE__*/React.createElement("td", {
+    }, c.item), E("td", {
       className: "px-4 py-2.5 text-neutral-500"
-    }, fmtDateY(c.due)), /*#__PURE__*/React.createElement("td", {
+    }, fmtDateY(c.due)), E("td", {
       className: "px-4 py-2.5"
-    }, /*#__PURE__*/React.createElement("span", {
+    }, E("span", {
       className: `text-[11px] px-2 py-0.5 rounded-full ${dd < 0 ? "bg-rose-100 text-rose-700" : dd <= 30 ? "bg-amber-100 text-amber-800" : "bg-neutral-100 text-neutral-500"}`
     }, dd < 0 ? "Overdue" : dd <= 30 ? `${dd}d` : "Upcoming")));
-  }))))));
+  });
+  const complianceTable = E("table", {
+    className: "w-full text-sm"
+  }, E("tbody", {
+    className: "divide-y divide-neutral-50"
+  }, complianceBody));
+  const complianceCard = E(Card, {
+    className: "overflow-hidden"
+  }, complianceHead, complianceTable);
+  return E("div", {
+    className: "max-w-6xl space-y-5"
+  }, filterBar, statsRow, contractsCard, complianceCard);
 }
 function HRPayroll({
   db
 }) {
-  const active = db.employees.filter(e => e.status !== "Resigned");
+  const E = React.createElement;
+  const [q, setQ] = useState("");
+  const [deptF, setDeptF] = useState("All");
+  const allActive = db.employees.filter(e => e.status !== "Resigned");
+  const depts = ["All", ...Array.from(new Set(allActive.map(e => e.dept))).sort()];
+  const ql = q.trim().toLowerCase();
+  const active = allActive.filter(e => (deptF === "All" || e.dept === deptF) && (!ql || e.name.toLowerCase().includes(ql)));
   const T = active.reduce((a, e) => {
     const p = e.payroll || {};
     a.g += p.gross || 0;
@@ -4624,124 +4873,156 @@ function HRPayroll({
     a.n += p.net || 0;
     return a;
   }, {
-    g: 0,
-    a: 0,
-    d: 0,
-    n: 0
+    g: 0, a: 0, d: 0, n: 0
   });
   const month = today().toLocaleDateString("en-GB", {
-    month: "long",
-    year: "numeric"
+    month: "long", year: "numeric"
   });
-  return /*#__PURE__*/React.createElement("div", {
-    className: "max-w-6xl space-y-4"
-  }, /*#__PURE__*/React.createElement("div", {
+  const filterBar = E(Card, {
+    className: "p-4"
+  }, E("div", {
+    className: "flex flex-wrap items-center gap-2"
+  }, SearchBox({
+    value: q, onChange: setQ, placeholder: "Search employee…"
+  }), E("select", {
+    className: "text-[12px] border border-neutral-200 rounded-lg px-2 py-1.5", value: deptF, onChange: ev => setDeptF(ev.target.value)
+  }, depts.map(d => E("option", {
+    key: d, value: d
+  }, d === "All" ? "All departments" : d))), FilterMeta({
+    shown: active.length, total: allActive.length, onClear: () => {
+      setQ("");
+      setDeptF("All");
+    }
+  })));
+  const headerRow = E("div", {
     className: "flex items-center gap-3 flex-wrap"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, E("div", {
     className: "text-sm text-neutral-500"
-  }, "Coordination register for ", /*#__PURE__*/React.createElement("b", null, month), " — ", active.length, " employees. Finance executes via the Payments module."), /*#__PURE__*/React.createElement("div", {
+  }, "Coordination register for ", E("b", null, month), " — ", active.length, " employees. Finance executes via the Payments module."), E("div", {
     className: "flex-1"
-  }), /*#__PURE__*/React.createElement("span", {
+  }), E("span", {
     className: "text-[11px] text-neutral-400"
-  }, "USD · net ", money(T.n))), /*#__PURE__*/React.createElement("div", {
+  }, "USD · net ", money(T.n)));
+  const kpiRow = E("div", {
     className: "grid grid-cols-2 md:grid-cols-4 gap-3"
-  }, /*#__PURE__*/React.createElement(Card, {
+  }, E(Card, {
     className: "p-4"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, E("div", {
     className: "text-[11px] uppercase tracking-wide text-neutral-400"
-  }, "Gross"), /*#__PURE__*/React.createElement("div", {
-    className: "font-display text-2xl mt-1",
-    style: {
+  }, "Gross"), E("div", {
+    className: "font-display text-2xl mt-1", style: {
       fontWeight: 800
     }
-  }, money(T.g))), /*#__PURE__*/React.createElement(Card, {
+  }, money(T.g))), E(Card, {
     className: "p-4"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, E("div", {
     className: "text-[11px] uppercase tracking-wide text-neutral-400"
-  }, "Allowances"), /*#__PURE__*/React.createElement("div", {
-    className: "font-display text-2xl mt-1",
-    style: {
+  }, "Allowances"), E("div", {
+    className: "font-display text-2xl mt-1", style: {
       fontWeight: 800
     }
-  }, money(T.a))), /*#__PURE__*/React.createElement(Card, {
+  }, money(T.a))), E(Card, {
     className: "p-4"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, E("div", {
     className: "text-[11px] uppercase tracking-wide text-neutral-400"
-  }, "Deductions"), /*#__PURE__*/React.createElement("div", {
-    className: "font-display text-2xl mt-1",
-    style: {
+  }, "Deductions"), E("div", {
+    className: "font-display text-2xl mt-1", style: {
       fontWeight: 800
     }
-  }, money(T.d))), /*#__PURE__*/React.createElement(Card, {
+  }, money(T.d))), E(Card, {
     className: "p-4 relative overflow-hidden"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, E("div", {
     className: "absolute -right-6 -top-6 h-16 w-16 rounded-full iris opacity-30 blur-xl"
-  }), /*#__PURE__*/React.createElement("div", {
+  }), E("div", {
     className: "text-[11px] uppercase tracking-wide text-neutral-400"
-  }, "Net payout"), /*#__PURE__*/React.createElement("div", {
-    className: "font-display text-2xl mt-1",
-    style: {
+  }, "Net payout"), E("div", {
+    className: "font-display text-2xl mt-1", style: {
       fontWeight: 800
     }
-  }, money(T.n)))), /*#__PURE__*/React.createElement(Card, {
-    className: "overflow-hidden"
-  }, /*#__PURE__*/React.createElement("table", {
-    className: "w-full text-sm"
-  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
-    className: "text-left text-[11px] uppercase text-neutral-400 border-b border-neutral-100 bg-neutral-50/70"
-  }, /*#__PURE__*/React.createElement("th", {
-    className: "px-4 py-2.5 font-medium"
-  }, "Employee"), /*#__PURE__*/React.createElement("th", {
-    className: "px-4 py-2.5 font-medium"
-  }, "Department"), /*#__PURE__*/React.createElement("th", {
-    className: "px-4 py-2.5 font-medium text-right"
-  }, "Gross"), /*#__PURE__*/React.createElement("th", {
-    className: "px-4 py-2.5 font-medium text-right"
-  }, "Allowance"), /*#__PURE__*/React.createElement("th", {
-    className: "px-4 py-2.5 font-medium text-right"
-  }, "Deductions"), /*#__PURE__*/React.createElement("th", {
-    className: "px-4 py-2.5 font-medium text-right"
-  }, "Net"))), /*#__PURE__*/React.createElement("tbody", {
-    className: "divide-y divide-neutral-50"
-  }, active.map(e => {
+  }, money(T.n))));
+  const payrollExportCols = [{
+    label: "Employee", value: e => e.name
+  }, {
+    label: "Department", value: e => e.dept
+  }, {
+    label: "Gross", value: e => (e.payroll || {}).gross || 0
+  }, {
+    label: "Allowance", value: e => (e.payroll || {}).allowance || 0
+  }, {
+    label: "Deductions", value: e => (e.payroll || {}).deductions || 0
+  }, {
+    label: "Net", value: e => (e.payroll || {}).net || 0
+  }];
+  const tableHead = E("div", {
+    className: "px-4 py-3 border-b border-neutral-100 flex items-center justify-between flex-wrap gap-2"
+  }, E("div", {
+    className: "font-display text-sm uppercase tracking-wide", style: {
+      fontWeight: 700
+    }
+  }, "Payroll — ", month), ExportBar({
+    columns: payrollExportCols, rows: active, filename: "payroll_" + month.replace(/\s+/g, "_"), title: "Payroll " + month, empty: "no employees"
+  }));
+  const tableBody = active.map(e => {
     const p = e.payroll || {};
-    return /*#__PURE__*/React.createElement("tr", {
-      key: e.id,
-      className: "hover:bg-neutral-50/60"
-    }, /*#__PURE__*/React.createElement("td", {
+    return E("tr", {
+      key: e.id, className: "hover:bg-neutral-50/60"
+    }, E("td", {
       className: "px-4 py-2.5"
-    }, /*#__PURE__*/React.createElement("div", {
+    }, E("div", {
       className: "flex items-center gap-2"
-    }, /*#__PURE__*/React.createElement(Avatar, {
-      name: e.name,
-      size: 7
-    }), /*#__PURE__*/React.createElement("span", {
+    }, E(Avatar, {
+      name: e.name, size: 7
+    }), E("span", {
       className: "font-medium"
-    }, e.name))), /*#__PURE__*/React.createElement("td", {
+    }, e.name))), E("td", {
       className: "px-4 py-2.5 text-neutral-500"
-    }, e.dept), /*#__PURE__*/React.createElement("td", {
+    }, e.dept), E("td", {
       className: "px-4 py-2.5 text-right"
-    }, money(p.gross)), /*#__PURE__*/React.createElement("td", {
+    }, money(p.gross)), E("td", {
       className: "px-4 py-2.5 text-right text-neutral-500"
-    }, money(p.allowance)), /*#__PURE__*/React.createElement("td", {
+    }, money(p.allowance)), E("td", {
       className: "px-4 py-2.5 text-right text-rose-600"
-    }, "-", money(p.deductions)), /*#__PURE__*/React.createElement("td", {
+    }, "-", money(p.deductions)), E("td", {
       className: "px-4 py-2.5 text-right font-medium"
     }, money(p.net)));
-  })), /*#__PURE__*/React.createElement("tfoot", null, /*#__PURE__*/React.createElement("tr", {
+  });
+  const payrollTable = E("table", {
+    className: "w-full text-sm"
+  }, E("thead", null, E("tr", {
+    className: "text-left text-[11px] uppercase text-neutral-400 border-b border-neutral-100 bg-neutral-50/70"
+  }, E("th", {
+    className: "px-4 py-2.5 font-medium"
+  }, "Employee"), E("th", {
+    className: "px-4 py-2.5 font-medium"
+  }, "Department"), E("th", {
+    className: "px-4 py-2.5 font-medium text-right"
+  }, "Gross"), E("th", {
+    className: "px-4 py-2.5 font-medium text-right"
+  }, "Allowance"), E("th", {
+    className: "px-4 py-2.5 font-medium text-right"
+  }, "Deductions"), E("th", {
+    className: "px-4 py-2.5 font-medium text-right"
+  }, "Net"))), E("tbody", {
+    className: "divide-y divide-neutral-50"
+  }, tableBody), E("tfoot", null, E("tr", {
     className: "border-t-2 border-neutral-200 font-semibold"
-  }, /*#__PURE__*/React.createElement("td", {
-    className: "px-4 py-2.5",
-    colSpan: 2
-  }, "Total"), /*#__PURE__*/React.createElement("td", {
+  }, E("td", {
+    className: "px-4 py-2.5", colSpan: 2
+  }, "Total"), E("td", {
     className: "px-4 py-2.5 text-right"
-  }, money(T.g)), /*#__PURE__*/React.createElement("td", {
+  }, money(T.g)), E("td", {
     className: "px-4 py-2.5 text-right"
-  }, money(T.a)), /*#__PURE__*/React.createElement("td", {
+  }, money(T.a)), E("td", {
     className: "px-4 py-2.5 text-right text-rose-600"
-  }, "-", money(T.d)), /*#__PURE__*/React.createElement("td", {
+  }, "-", money(T.d)), E("td", {
     className: "px-4 py-2.5 text-right"
-  }, money(T.n)))))));
+  }, money(T.n)))));
+  const payrollCard = E(Card, {
+    className: "overflow-hidden"
+  }, tableHead, payrollTable);
+  return E("div", {
+    className: "max-w-6xl space-y-4"
+  }, headerRow, filterBar, kpiRow, payrollCard);
 }
 function OfficeV({
   db,
@@ -4768,7 +5049,12 @@ function OfficeV({
     Done: "bg-emerald-50 text-emerald-700",
     Overdue: "bg-rose-50 text-rose-700"
   };
-  const assets = db.assets || [];
+  const [assetQ, setAssetQ] = useState("");
+  const [assetCatF, setAssetCatF] = useState("All");
+  const allAssets = db.assets || [];
+  const assetCats = ["All", ...Array.from(new Set(allAssets.map(a => a.category || "Other"))).sort()];
+  const assetQl = assetQ.trim().toLowerCase();
+  const assets = allAssets.filter(a => (assetCatF === "All" || (a.category || "Other") === assetCatF) && (!assetQl || a.tag.toLowerCase().includes(assetQl) || (a.type || "").toLowerCase().includes(assetQl) || (a.assignedTo ? nameOf(a.assignedTo) : "").toLowerCase().includes(assetQl)));
   const total = assets.length;
   const inStock = assets.filter(a => a.status === "In stock").length;
   const assigned = assets.filter(a => a.status === "Assigned").length;
@@ -4784,14 +5070,31 @@ function OfficeV({
     if (a.status === "In stock") byCat[c].inStock++;else if (a.status === "Assigned") byCat[c].assigned++;
   });
   const catOrder = Object.keys(byCat).sort((a, b) => byCat[b].total - byCat[a].total);
+  const assetExportCols = [{
+    label: "Tag", value: a => a.tag
+  }, {
+    label: "Category", value: a => a.category || "Other"
+  }, {
+    label: "Type", value: a => a.type
+  }, {
+    label: "Assigned to", value: a => a.assignedTo ? nameOf(a.assignedTo) : ""
+  }, {
+    label: "Status", value: a => a.status
+  }, {
+    label: "Serial", value: a => a.serial || ""
+  }];
   const assetHeader = E("div", {
-    className: "px-4 py-3 border-b border-neutral-100 flex items-center justify-between"
+    className: "px-4 py-3 border-b border-neutral-100 flex items-center justify-between flex-wrap gap-2"
   }, E("span", {
     className: "font-display text-sm uppercase tracking-wide",
     style: {
       fontWeight: 700
     }
-  }, "Asset & equipment register"), E("button", {
+  }, "Asset & equipment register"), E("div", {
+    className: "flex items-center gap-2 flex-wrap"
+  }, ExportBar({
+    columns: assetExportCols, rows: assets, filename: "asset_register", title: "Asset & equipment register", empty: "no assets"
+  }), E("button", {
     onClick: () => setModal({
       type: "new_asset"
     }),
@@ -4799,7 +5102,21 @@ function OfficeV({
   }, E(Icon, {
     n: "plus",
     size: 12
-  }), " add"));
+  }), " add")));
+  const assetFilterRow = E("div", {
+    className: "px-4 py-2.5 border-b border-neutral-100 flex flex-wrap items-center gap-2"
+  }, SearchBox({
+    value: assetQ, onChange: setAssetQ, placeholder: "Search tag, type, assignee…"
+  }), E("select", {
+    className: "text-[12px] border border-neutral-200 rounded-lg px-2 py-1.5", value: assetCatF, onChange: ev => setAssetCatF(ev.target.value)
+  }, assetCats.map(c => E("option", {
+    key: c, value: c
+  }, c === "All" ? "All categories" : c))), FilterMeta({
+    shown: assets.length, total: allAssets.length, onClear: () => {
+      setAssetQ("");
+      setAssetCatF("All");
+    }
+  }));
   const assetStats = E("div", {
     className: "px-4 py-3 grid grid-cols-3 gap-3 border-b border-neutral-100"
   }, [["Total assets", total], ["In stock", inStock], ["Assigned", assigned]].map(([label, val]) => E("div", {
@@ -4869,15 +5186,38 @@ function OfficeV({
   }, "Overview restricted to HR Manager and Finance Director."));
   const assetCard = canManageAssets ? E(Card, {
     className: "overflow-hidden"
-  }, assetHeader, assetStats, assetCatRow, assetTable) : assetRestricted;
+  }, assetHeader, assetFilterRow, assetStats, assetCatRow, assetTable) : assetRestricted;
+  const [taskQ, setTaskQ] = useState("");
+  const [taskStatusF, setTaskStatusF] = useState("All");
+  const allTasks = db.adminTasks || [];
+  const taskStatuses = ["All", "Open", "In progress", "Done", "Overdue"];
+  const taskQl = taskQ.trim().toLowerCase();
+  const filteredTasks = allTasks.filter(t => (taskStatusF === "All" || t.status === taskStatusF) && (!taskQl || t.title.toLowerCase().includes(taskQl) || (t.category || "").toLowerCase().includes(taskQl) || nameOf(t.owner).toLowerCase().includes(taskQl)));
+  const taskExportCols = [{
+    label: "Title", value: t => t.title
+  }, {
+    label: "Category", value: t => t.category
+  }, {
+    label: "Owner", value: t => nameOf(t.owner)
+  }, {
+    label: "Due", value: t => t.due ? shortDate(t.due) : ""
+  }, {
+    label: "Status", value: t => t.status
+  }, {
+    label: "Note", value: t => t.note || ""
+  }];
   const taskHeader = E("div", {
-    className: "px-4 py-3 border-b border-neutral-100 flex items-center justify-between"
+    className: "px-4 py-3 border-b border-neutral-100 flex items-center justify-between flex-wrap gap-2"
   }, E("span", {
     className: "font-display text-sm uppercase tracking-wide",
     style: {
       fontWeight: 700
     }
-  }, "Admin & facilities tasks"), canEditTasks && E("button", {
+  }, "Admin & facilities tasks"), E("div", {
+    className: "flex items-center gap-2 flex-wrap"
+  }, ExportBar({
+    columns: taskExportCols, rows: filteredTasks, filename: "admin_facilities_tasks", title: "Admin & facilities tasks", empty: "no tasks"
+  }), canEditTasks && E("button", {
     onClick: () => setModal({
       type: "new_task"
     }),
@@ -4885,8 +5225,22 @@ function OfficeV({
   }, E(Icon, {
     n: "plus",
     size: 12
-  }), " add"));
-  const taskRows = db.adminTasks.map(t => {
+  }), " add")));
+  const taskFilterRow = E("div", {
+    className: "px-4 py-2.5 border-b border-neutral-100 flex flex-wrap items-center gap-2"
+  }, SearchBox({
+    value: taskQ, onChange: setTaskQ, placeholder: "Search title, category, owner…"
+  }), E("select", {
+    className: "text-[12px] border border-neutral-200 rounded-lg px-2 py-1.5", value: taskStatusF, onChange: ev => setTaskStatusF(ev.target.value)
+  }, taskStatuses.map(s => E("option", {
+    key: s, value: s
+  }, s === "All" ? "All statuses" : s))), FilterMeta({
+    shown: filteredTasks.length, total: allTasks.length, onClear: () => {
+      setTaskQ("");
+      setTaskStatusF("All");
+    }
+  }));
+  const taskRows = filteredTasks.map(t => {
     const titleEl = E("div", {
       className: "font-medium"
     }, t.title);
@@ -4921,7 +5275,7 @@ function OfficeV({
   }, taskRows));
   const tasksCard = E(Card, {
     className: "overflow-hidden"
-  }, taskHeader, taskTable);
+  }, taskHeader, taskFilterRow, taskTable);
   return E("div", {
     className: "max-w-6xl grid lg:grid-cols-2 gap-5"
   }, assetCard, tasksCard);
@@ -5239,6 +5593,33 @@ const SETTLEMENT_LABEL = {
   not_yet_paid: "owed once paid", pending: "settlement report due", submitted: "submitted — awaiting Finance review",
   needs_correction: "needs correction — resubmit", closed: "closed"
 };
+// Export columns for the Cost & Payment "Logs & reports" request list — shared by CSV/Excel/PDF.
+const COST_REPORT_COLUMNS = db => [{
+  label: "Title", value: r => r.title
+}, {
+  label: "Requester", value: r => {
+    const e = (db.employees || []).find(x => x.id === r.employeeId);
+    return e ? e.name : r.employeeId;
+  }
+}, {
+  label: "Department", value: r => r.dept
+}, {
+  label: "Category", value: r => r.category
+}, {
+  label: "Status", value: r => r.status
+}, {
+  label: "Amount", value: r => r.amount
+}, {
+  label: "Currency", value: r => r.currency
+}, {
+  label: "Urgency", value: r => r.urgency
+}, {
+  label: "Submitted", value: r => fmtDT(r.createdAt)
+}, {
+  label: "Paid", value: r => r.paidAt ? fmtDT(r.paidAt) : ""
+}, {
+  label: "Settlement status", value: r => r.settlementStatus && r.settlementStatus !== "not_required" ? (SETTLEMENT_LABEL[r.settlementStatus] || r.settlementStatus) : ""
+}];
 function CostApprovalV({
   db, update, role, me, meId, myEmpId, nameOf
 }) {
@@ -5255,6 +5636,11 @@ function CostApprovalV({
   const [linkDraft, setLinkDraft] = useState({});
   const [settleForm, setSettleForm] = useState({});
   const [settleComment, setSettleComment] = useState({});
+  const [rptQ, setRptQ] = useState("");
+  const [rptCategory, setRptCategory] = useState("All");
+  const [rptStatus, setRptStatus] = useState("All");
+  const [rptFrom, setRptFrom] = useState("");
+  const [rptTo, setRptTo] = useState("");
   const reqs = db.costRequests || [];
   const myReqs = reqs.filter(r => r.employeeId === myEmpId);
   const emp = (db.employees || []).find(e => e.id === myEmpId);
@@ -5961,12 +6347,29 @@ function CostApprovalV({
   const costAllAccess = canViewAllCost;
   const reportScope = costAllAccess ? reqs : myReqs;
   const openStatus = r => r.status !== "Paid" && r.status !== "Rejected";
+  const rptCategories = ["All", ...COST_CATEGORIES];
+  const rptStatuses = ["All", ...Object.keys(COST_STCLS)];
+  const rptQl = rptQ.trim().toLowerCase();
+  const rptFromMs = rptFrom ? new Date(rptFrom + "T00:00:00").getTime() : null;
+  const rptToMs = rptTo ? new Date(rptTo + "T23:59:59").getTime() : null;
+  const filteredScope = reportScope.filter(r => {
+    if (rptCategory !== "All" && r.category !== rptCategory) return false;
+    if (rptStatus !== "All" && r.status !== rptStatus) return false;
+    if (rptFromMs != null && r.createdAt < rptFromMs) return false;
+    if (rptToMs != null && r.createdAt > rptToMs) return false;
+    if (rptQl) {
+      const requester = db.employees.find(e => e.id === r.employeeId);
+      const hay = (r.title + " " + (requester ? requester.name : "") + " " + r.dept + " " + r.category + " " + r.description).toLowerCase();
+      if (!hay.includes(rptQl)) return false;
+    }
+    return true;
+  });
   const byStatus = {};
-  reportScope.forEach(r => {
+  filteredScope.forEach(r => {
     byStatus[r.status] = (byStatus[r.status] || 0) + 1;
   });
   const byCategory = {};
-  reportScope.forEach(r => {
+  filteredScope.forEach(r => {
     const c = byCategory[r.category] || {
       count: 0, usd: 0, vnd: 0
     };
@@ -5977,18 +6380,60 @@ function CostApprovalV({
   const fin = {
     usdPaid: 0, vndPaid: 0, usdPending: 0, vndPending: 0
   };
-  reportScope.forEach(r => {
+  filteredScope.forEach(r => {
     if (r.status === "Paid") {
       if (r.currency === "VND") fin.vndPaid += r.amount;else fin.usdPaid += r.amount;
     } else if (openStatus(r)) {
       if (r.currency === "VND") fin.vndPending += r.amount;else fin.usdPending += r.amount;
     }
   });
-  const escalatedCount = reportScope.filter(r => (r.cfoEscalatedAt || r.ceoEscalatedAt) && openStatus(r)).length;
-  const paidDurations = reportScope.filter(r => r.status === "Paid" && r.paidAt).map(r => (r.paidAt - r.createdAt) / 86400000);
+  const escalatedCount = filteredScope.filter(r => (r.cfoEscalatedAt || r.ceoEscalatedAt) && openStatus(r)).length;
+  const paidDurations = filteredScope.filter(r => r.status === "Paid" && r.paidAt).map(r => (r.paidAt - r.createdAt) / 86400000);
   const avgPayDays = paidDurations.length ? paidDurations.reduce((a, b) => a + b, 0) / paidDurations.length : null;
-  const scopedIds = new Set(reportScope.map(r => r.id));
-  const costLog = (db.audit || []).filter(a => String(a.action || "").startsWith("cost_") && (costAllAccess || scopedIds.has(a.requestId))).slice(0, 20);
+  const scopedIdsAll = new Set(reportScope.map(r => r.id));
+  const scopedIdsFiltered = new Set(filteredScope.map(r => r.id));
+  const costLog = (db.audit || []).filter(a => {
+    if (!String(a.action || "").startsWith("cost_")) return false;
+    // Privacy boundary: never show an entry outside what this user is allowed to see at all.
+    if (!(costAllAccess || scopedIdsAll.has(a.requestId))) return false;
+    // Once privacy-cleared, the report filters narrow further — but only for entries tied to a
+    // specific request; general entries (e.g. Q&A) aren't request-scoped, so filters don't apply.
+    if (a.requestId && scopedIdsAll.has(a.requestId)) return scopedIdsFiltered.has(a.requestId);
+    return true;
+  }).slice(0, 200);
+  const reportFilterBar = E(Card, {
+    className: "p-4"
+  }, E("div", {
+    className: "flex flex-wrap items-center gap-2"
+  }, SearchBox({
+    value: rptQ, onChange: setRptQ, placeholder: "Search title, requester, dept…"
+  }), E("select", {
+    className: "text-[12px] border border-neutral-200 rounded-lg px-2 py-1.5", value: rptCategory, onChange: ev => setRptCategory(ev.target.value)
+  }, rptCategories.map(c => E("option", {
+    key: c, value: c
+  }, c === "All" ? "All categories" : c))), E("select", {
+    className: "text-[12px] border border-neutral-200 rounded-lg px-2 py-1.5", value: rptStatus, onChange: ev => setRptStatus(ev.target.value)
+  }, rptStatuses.map(s => E("option", {
+    key: s, value: s
+  }, s === "All" ? "All stages" : s))), E("input", {
+    type: "date", className: "text-[12px] border border-neutral-200 rounded-lg px-2 py-1.5", value: rptFrom,
+    onChange: ev => setRptFrom(ev.target.value), title: "From date"
+  }), E("input", {
+    type: "date", className: "text-[12px] border border-neutral-200 rounded-lg px-2 py-1.5", value: rptTo,
+    onChange: ev => setRptTo(ev.target.value), title: "To date"
+  }), FilterMeta({
+    shown: filteredScope.length, total: reportScope.length, onClear: () => {
+      setRptQ("");
+      setRptCategory("All");
+      setRptStatus("All");
+      setRptFrom("");
+      setRptTo("");
+    }
+  }), E("div", {
+    className: "flex-1"
+  }), ExportBar({
+    columns: COST_REPORT_COLUMNS(db), rows: filteredScope, filename: "cost_payment_requests", title: "Cost & payment requests", empty: "no requests match"
+  })));
   const StatTile = (n, l) => E("div", {
     className: "px-3 py-2 rounded-xl ring-1 ring-neutral-200 bg-white"
   }, E("div", {
@@ -6000,8 +6445,8 @@ function CostApprovalV({
   }, l));
   const statTiles = E("div", {
     className: "grid grid-cols-2 md:grid-cols-4 gap-2"
-  }, StatTile(reportScope.length, "total requests"), StatTile(reportScope.filter(openStatus).length, "in progress"), StatTile(byStatus.Paid || 0, "paid"), StatTile(byStatus.Rejected || 0, "rejected"));
-  const advanceReqs = reportScope.filter(r => r.category === "Advance Payment");
+  }, StatTile(filteredScope.length, "total requests"), StatTile(filteredScope.filter(openStatus).length, "in progress"), StatTile(byStatus.Paid || 0, "paid"), StatTile(byStatus.Rejected || 0, "rejected"));
+  const advanceReqs = filteredScope.filter(r => r.category === "Advance Payment");
   const unsettledAdvances = advanceReqs.filter(r => r.settlementStatus === "pending" || r.settlementStatus === "needs_correction" || r.settlementStatus === "submitted");
   const unsettledAdvanceAmt = unsettledAdvances.reduce((a, r) => a + (r.amount || 0), 0);
   const settlementsAwaitingReview = ((costAllAccess ? db.costSettlements : (db.costSettlements || []).filter(s => (reqs.find(r => r.id === s.costRequestId) || {}).employeeId === myEmpId)) || []).filter(s => s.status === "Submitted").length;
@@ -6087,12 +6532,28 @@ function CostApprovalV({
   }, String(a.action || "").replace(/^cost_/, "").replace(/_/g, " "), a.detail ? " — " + a.detail : "")));
   const logCard = E(Card, {
     className: "overflow-hidden lg:col-span-2"
-  }, cardHead("Cost & payment activity log", null), costLog.length ? E("div", null, logRows) : emptyRow("No cost & payment activity yet."));
+  }, E("div", {
+    className: "px-4 py-3 border-b border-neutral-100 flex items-center justify-between flex-wrap gap-2"
+  }, E("div", {
+    className: "font-display text-sm uppercase tracking-wide", style: {
+      fontWeight: 700
+    }
+  }, "Cost & payment activity log"), ExportBar({
+    columns: [{
+      label: "Time", value: a => fmtDT(a.ts)
+    }, {
+      label: "Actor", value: a => uname(db, a.actorId)
+    }, {
+      label: "Action", value: a => String(a.action || "").replace(/^cost_/, "").replace(/_/g, " ")
+    }, {
+      label: "Detail", value: a => a.detail || ""
+    }], rows: costLog, filename: "cost_payment_activity_log", title: "Cost & payment activity log", empty: "no activity"
+  })), costLog.length ? E("div", null, logRows) : emptyRow("No cost & payment activity yet."));
   const reportsBlock = sub === "reports" && E("div", {
     className: "space-y-4"
   }, !costAllAccess && E("div", {
     className: "text-[12px] text-neutral-500 bg-white ring-1 ring-black/5 rounded-xl px-4 py-2.5"
-  }, "Showing your own requests only. Ngoc, the Finance Director and the CEO see company-wide totals here."), statTiles, advanceStatTiles, E("div", {
+  }, "Showing your own requests only. Ngoc, the Finance Director and the CEO see company-wide totals here."), reportFilterBar, statTiles, advanceStatTiles, E("div", {
     className: "grid lg:grid-cols-2 gap-4"
   }, statusTable, financeTable, categoryTable, logCard));
   return E("div", {
@@ -6102,7 +6563,15 @@ function CostApprovalV({
 function HRReports({
   db
 }) {
-  const active = db.employees.filter(e => e.status !== "Resigned");
+  const E = React.createElement;
+  const [q, setQ] = useState("");
+  const [deptF, setDeptF] = useState("All");
+  const [typeF, setTypeF] = useState("All");
+  const allActive = db.employees.filter(e => e.status !== "Resigned");
+  const depts = ["All", ...Array.from(new Set(allActive.map(e => e.dept))).sort()];
+  const types = ["All", ...Array.from(new Set(allActive.map(e => e.type))).sort()];
+  const ql = q.trim().toLowerCase();
+  const active = allActive.filter(e => (deptF === "All" || e.dept === deptF) && (typeF === "All" || e.type === typeF) && (!ql || e.name.toLowerCase().includes(ql) || (e.role || "").toLowerCase().includes(ql)));
   const byDept = {},
     costByDept = {},
     byType = {};
@@ -6111,77 +6580,85 @@ function HRReports({
     costByDept[e.dept] = (costByDept[e.dept] || 0) + (e.payroll?.gross || 0);
     byType[e.type] = (byType[e.type] || 0) + 1;
   });
-  return /*#__PURE__*/React.createElement("div", {
-    className: "max-w-5xl grid lg:grid-cols-2 gap-5"
-  }, /*#__PURE__*/React.createElement(Card, {
+  const filterBar = E(Card, {
+    className: "p-4"
+  }, E("div", {
+    className: "flex flex-wrap items-center gap-2"
+  }, SearchBox({
+    value: q, onChange: setQ, placeholder: "Search name or role…"
+  }), E("select", {
+    className: "text-[12px] border border-neutral-200 rounded-lg px-2 py-1.5", value: deptF, onChange: ev => setDeptF(ev.target.value)
+  }, depts.map(d => E("option", {
+    key: d, value: d
+  }, d === "All" ? "All departments" : d))), E("select", {
+    className: "text-[12px] border border-neutral-200 rounded-lg px-2 py-1.5", value: typeF, onChange: ev => setTypeF(ev.target.value)
+  }, types.map(t => E("option", {
+    key: t, value: t
+  }, t === "All" ? "All employment types" : t))), FilterMeta({
+    shown: active.length, total: allActive.length, onClear: () => {
+      setQ("");
+      setDeptF("All");
+      setTypeF("All");
+    }
+  })));
+  const reportCard = (title, tableRows, cols, exportName, sheetTitle) => E(Card, {
     className: "p-5"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "font-display text-sm uppercase tracking-wide mb-3",
-    style: {
+  }, E("div", {
+    className: "flex items-center justify-between flex-wrap gap-2 mb-3"
+  }, E("div", {
+    className: "font-display text-sm uppercase tracking-wide", style: {
       fontWeight: 700
     }
-  }, "Headcount by department"), /*#__PURE__*/React.createElement("table", {
+  }, title), ExportBar({
+    columns: cols, rows: tableRows, filename: exportName, title: sheetTitle, empty: "no rows"
+  })), tableRows.length ? E("table", {
     className: "w-full text-sm"
-  }, /*#__PURE__*/React.createElement("tbody", {
+  }, E("tbody", {
     className: "divide-y divide-neutral-50"
-  }, Object.entries(byDept).sort((a, b) => b[1] - a[1]).map(([d, n]) => /*#__PURE__*/React.createElement("tr", {
-    key: d
-  }, /*#__PURE__*/React.createElement("td", {
-    className: "py-2 text-neutral-600"
-  }, d), /*#__PURE__*/React.createElement("td", {
-    className: "py-2 text-right font-medium"
-  }, n)))))), /*#__PURE__*/React.createElement(Card, {
-    className: "p-5"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "font-display text-sm uppercase tracking-wide mb-3",
-    style: {
-      fontWeight: 700
-    }
-  }, "Payroll cost by department"), /*#__PURE__*/React.createElement("table", {
-    className: "w-full text-sm"
-  }, /*#__PURE__*/React.createElement("tbody", {
-    className: "divide-y divide-neutral-50"
-  }, Object.entries(costByDept).sort((a, b) => b[1] - a[1]).map(([d, n]) => /*#__PURE__*/React.createElement("tr", {
-    key: d
-  }, /*#__PURE__*/React.createElement("td", {
-    className: "py-2 text-neutral-600"
-  }, d), /*#__PURE__*/React.createElement("td", {
-    className: "py-2 text-right font-medium"
-  }, money(n))))))), /*#__PURE__*/React.createElement(Card, {
-    className: "p-5"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "font-display text-sm uppercase tracking-wide mb-3",
-    style: {
-      fontWeight: 700
-    }
-  }, "Employment type"), /*#__PURE__*/React.createElement("table", {
-    className: "w-full text-sm"
-  }, /*#__PURE__*/React.createElement("tbody", {
-    className: "divide-y divide-neutral-50"
-  }, Object.entries(byType).map(([d, n]) => /*#__PURE__*/React.createElement("tr", {
-    key: d
-  }, /*#__PURE__*/React.createElement("td", {
-    className: "py-2 text-neutral-600"
-  }, d), /*#__PURE__*/React.createElement("td", {
-    className: "py-2 text-right font-medium"
-  }, n)))))), /*#__PURE__*/React.createElement(Card, {
-    className: "p-5"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "font-display text-sm uppercase tracking-wide mb-3",
-    style: {
-      fontWeight: 700
-    }
-  }, "Tenure snapshot"), /*#__PURE__*/React.createElement("table", {
-    className: "w-full text-sm"
-  }, /*#__PURE__*/React.createElement("tbody", {
-    className: "divide-y divide-neutral-50"
-  }, active.slice().sort((a, b) => parse(a.start) - parse(b.start)).map(e => /*#__PURE__*/React.createElement("tr", {
-    key: e.id
-  }, /*#__PURE__*/React.createElement("td", {
-    className: "py-2 text-neutral-600"
-  }, e.name), /*#__PURE__*/React.createElement("td", {
-    className: "py-2 text-right text-neutral-500"
-  }, tenure(e.start))))))));
+  }, tableRows.map((row, i) => E("tr", {
+    key: i
+  }, row.cells.map((c, j) => E("td", {
+    key: j, className: j === row.cells.length - 1 ? "py-2 text-right font-medium" : "py-2 text-neutral-600"
+  }, c)))))) : E("div", {
+    className: "text-sm text-neutral-400 py-4 text-center"
+  }, "No employees match the current filters."));
+  const headcountRows = Object.entries(byDept).sort((a, b) => b[1] - a[1]).map(([d, n]) => ({
+    cells: [d, n]
+  }));
+  const payrollRows = Object.entries(costByDept).sort((a, b) => b[1] - a[1]).map(([d, n]) => ({
+    cells: [d, money(n)]
+  }));
+  const typeRows = Object.entries(byType).map(([d, n]) => ({
+    cells: [d, n]
+  }));
+  const tenureRows = active.slice().sort((a, b) => parse(a.start) - parse(b.start)).map(e => ({
+    cells: [e.name, tenure(e.start)]
+  }));
+  const headcountCard = reportCard("Headcount by department", headcountRows, [{
+    label: "Department", value: r => r.cells[0]
+  }, {
+    label: "Headcount", value: r => r.cells[1]
+  }], "headcount_by_department", "Headcount by department");
+  const payrollCard = reportCard("Payroll cost by department", payrollRows, [{
+    label: "Department", value: r => r.cells[0]
+  }, {
+    label: "Payroll cost (USD)", value: r => r.cells[1]
+  }], "payroll_cost_by_department", "Payroll cost by department");
+  const typeCard = reportCard("Employment type", typeRows, [{
+    label: "Type", value: r => r.cells[0]
+  }, {
+    label: "Headcount", value: r => r.cells[1]
+  }], "headcount_by_employment_type", "Employment type");
+  const tenureCard = reportCard("Tenure snapshot", tenureRows, [{
+    label: "Employee", value: r => r.cells[0]
+  }, {
+    label: "Tenure", value: r => r.cells[1]
+  }], "tenure_snapshot", "Tenure snapshot");
+  return E("div", {
+    className: "max-w-5xl space-y-5"
+  }, filterBar, E("div", {
+    className: "grid lg:grid-cols-2 gap-5"
+  }, headcountCard, payrollCard, typeCard, tenureCard));
 }
 function HRModal({
   db,
@@ -8569,13 +9046,17 @@ function Payments({
 function Audit({
   db
 }) {
+  const E = React.createElement;
   const [f, setF] = useState("all");
+  const [q, setQ] = useState("");
+  const [fromD, setFromD] = useState("");
+  const [toD, setToD] = useState("");
   const approvedN = db.audit.filter(a => a.action === "approved").length,
     rejectedN = db.audit.filter(a => a.action === "rejected").length,
     submittedN = db.audit.filter(a => a.action === "submitted").length,
     paidN = db.audit.filter(a => a.action === "paid").length;
   const costN = db.audit.filter(a => String(a.action || "").startsWith("cost_")).length;
-  const rows = db.audit.filter(a => f === "all" || (f === "cost" ? String(a.action || "").startsWith("cost_") : a.action === f));
+  const byStatusRows = db.audit.filter(a => f === "all" || (f === "cost" ? String(a.action || "").startsWith("cost_") : a.action === f));
   const vFor = rid => {
     const r = db.requests.find(x => x.id === rid);
     if (r) return db.vendors.find(v => v.id === r.vendorId)?.name + " · " + money(r.amount);
@@ -8590,6 +9071,51 @@ function Audit({
     if (eq) return (db.employees.find(e => e.id === eq.employeeId)?.name || "—") + " · equipment";
     return "—";
   };
+  const ql = q.trim().toLowerCase();
+  const fromMs = fromD ? new Date(fromD + "T00:00:00").getTime() : null;
+  const toMs = toD ? new Date(toD + "T23:59:59").getTime() : null;
+  const rows = byStatusRows.filter(a => {
+    if (fromMs != null && a.ts < fromMs) return false;
+    if (toMs != null && a.ts > toMs) return false;
+    if (!ql) return true;
+    const hay = (uname(db, a.actorId) + " " + (a.detail || "") + " " + vFor(a.requestId) + " " + String(a.action || "")).toLowerCase();
+    return hay.includes(ql);
+  });
+  const auditExportCols = [{
+    label: "Time", value: a => fmtDT(a.ts)
+  }, {
+    label: "Action", value: a => String(a.action || "").replace(/_/g, " ")
+  }, {
+    label: "Account", value: a => uname(db, a.actorId)
+  }, {
+    label: "Role", value: a => ROLES[a.role] ? ROLES[a.role].label : a.role
+  }, {
+    label: "Payment", value: a => vFor(a.requestId)
+  }, {
+    label: "Note", value: a => a.detail || ""
+  }];
+  const filterRow = E("div", {
+    className: "flex flex-wrap items-center gap-2"
+  }, SearchBox({
+    value: q, onChange: setQ, placeholder: "Search account, action, note…"
+  }), E("input", {
+    type: "date", className: "text-[12px] border border-neutral-200 rounded-lg px-2 py-1.5", value: fromD,
+    onChange: ev => setFromD(ev.target.value), title: "From date"
+  }), E("input", {
+    type: "date", className: "text-[12px] border border-neutral-200 rounded-lg px-2 py-1.5", value: toD,
+    onChange: ev => setToD(ev.target.value), title: "To date"
+  }), FilterMeta({
+    shown: rows.length, total: db.audit.length, onClear: () => {
+      setQ("");
+      setFromD("");
+      setToD("");
+      setF("all");
+    }
+  }), E("div", {
+    className: "flex-1"
+  }), ExportBar({
+    columns: auditExportCols, rows, filename: "audit_log", title: "Full action log", empty: "no events"
+  }));
   const badge = {
     submitted: "bg-blue-50 text-blue-700",
     approved: "bg-emerald-50 text-emerald-700",
@@ -8678,7 +9204,9 @@ function Audit({
     l: "cost & payment",
     onClick: () => setF("cost"),
     active: f === "cost"
-  })), /*#__PURE__*/React.createElement(Card, {
+  })), E(Card, {
+    className: "p-4"
+  }, filterRow), /*#__PURE__*/React.createElement(Card, {
     className: "overflow-hidden"
   }, /*#__PURE__*/React.createElement("div", {
     className: "px-4 py-3 border-b border-neutral-100 font-display text-sm uppercase tracking-wide",
