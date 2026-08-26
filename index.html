@@ -2862,18 +2862,50 @@ function scorePolicyMatch(question) {
   };
 }
 const POLICY_AI_CONFIDENCE_THRESHOLD = 0.5;
+// "Simple & available data" questions — the asker wants THEIR OWN live number (balance,
+// entitlement, days left), not a generic policy explanation. These are answered directly
+// from that employee's real record via entitlementFor/leaveBalanceFor — never escalated,
+// since the app already knows the answer and HR shouldn't have to restate a number the
+// system can compute.
+const PERSONAL_BALANCE_KEYWORDS = ["available for me", "for me?", "do i have left", "i have left", "my balance", "my leave", "my annual leave", "left for me", "remaining for me", "check my balance", "what's my balance", "whats my balance", "how many do i have", "how much do i have", "days do i have"];
+function detectPersonalDataIntent(question) {
+  const q = String(question || "").toLowerCase();
+  if (PERSONAL_BALANCE_KEYWORDS.some(k => q.indexOf(k) !== -1)) return true;
+  return /how many|how much/.test(q) && /(left|remaining|available)/.test(q) && /(leave|day)/.test(q);
+}
+function answerMyBalance(db, emp, year) {
+  const bal = leaveBalanceFor(db, emp, year);
+  if (!bal.eligible) return "You're not yet eligible for Annual Leave in " + year + " — " + bal.note;
+  return "You have " + bal.remaining + "d of Annual Leave remaining out of " + bal.entitled + "d entitled for " + year + " (used " + bal.used + "d so far). " + bal.note;
+}
 function askPolicyQuestion(next, {
   employeeId, question, askedBy, askedRole
 }) {
   next.policyQuestions = next.policyQuestions || [];
   next.notifications = next.notifications || [];
   const text = String(question || "").trim();
-  const {
-    entry, confidence
-  } = scorePolicyMatch(text);
   const id = uid("pq");
   const now = Date.now();
   const emp = next.employees.find(e => e.id === employeeId);
+  if (emp && detectPersonalDataIntent(text)) {
+    const year = today().getFullYear();
+    const answer = answerMyBalance(next, emp, year);
+    next.policyQuestions.unshift({
+      id, employeeId, question: text,
+      aiAnswer: answer, aiConfidence: 1, aiTopic: "my_balance",
+      status: "ai_answered", hrAnswer: "", hrAnsweredBy: "", hrAnsweredAt: null,
+      reminderSentAt: null, escalatedAt: null, createdAt: now
+    });
+    next.audit.unshift({
+      id: uid("au"), ts: now, requestId: id, actorId: askedBy, role: askedRole,
+      action: "policy_question_answered",
+      detail: emp.name + " asked: “" + text + "” — answered live from their Annual Leave balance."
+    });
+    return id;
+  }
+  const {
+    entry, confidence
+  } = scorePolicyMatch(text);
   const escalate = !entry || confidence < POLICY_AI_CONFIDENCE_THRESHOLD;
   next.policyQuestions.unshift({
     id, employeeId, question: text,
