@@ -5264,6 +5264,12 @@ function CostApprovalV({
   const isFD = (meId && meId === cfoUserId) || role === "admin";
   const isCeoQueue = role === "ceo" || role === "admin";
   const canMarkPaid = isFD || canReviewDocs || role === "payer" || role === "admin";
+  const isHR = role === "hr_manager" || role === "admin";
+  // Privacy: cost/payment requests are private to the requester by default. Only HR, the Finance
+  // Director (CFO), Finance Executive(s)/payer staff, and the CEO can see everyone's requests —
+  // everyone else only ever sees their own (via myList) plus whatever specific request is routed to
+  // them for a decision (Dept Head/FD/CEO queues, which are scoped per-request, not a full roster view).
+  const canViewAllCost = canReviewDocs || isFD || isCeoQueue || role === "payer" || isHR;
   const docPicker = (docs, setDocs, statusKey) => {
     const status = docUpStatus[statusKey] || "idle";
     const draft = linkDraft[statusKey] || {
@@ -5894,11 +5900,15 @@ function CostApprovalV({
   const payCard = canMarkPaid ? E(Card, {
     className: "overflow-hidden lg:col-span-2"
   }, cardHead("Ready for payment", payQueue.length), payQueue.length ? payQueue.map(r => row(r, payActions(r))) : emptyRow("Nothing approved and waiting on payment.")) : null;
-  const paidCard = paidList.length > 0 ? E(Card, {
+  // Global "Paid" roster is company-wide detail (names, departments, amounts) — restrict it to the
+  // roles allowed to view everyone's requests. Everyone else already sees their own paid requests
+  // inside "New cost / payment request" via myList, so nothing is lost for them.
+  const paidCard = canViewAllCost && paidList.length > 0 ? E(Card, {
     className: "overflow-hidden lg:col-span-2"
   }, cardHead("Paid", null), paidList.map(r => row(r, null))) : null;
   const settlementQueue = (db.costSettlements || []).filter(s => s.status === "Submitted");
-  const settlementReviewActions = s => E("div", {
+  const canReviewSettlements = canReviewDocs || isFD || role === "admin";
+  const settlementReviewActions = s => canReviewSettlements ? E("div", {
     className: "flex flex-wrap gap-1.5 items-center"
   }, E("input", {
     className: "text-[12px] border border-neutral-200 rounded-lg px-2 py-1 mr-1.5 w-52",
@@ -5919,6 +5929,13 @@ function CostApprovalV({
   }, "Needs correction"), E("button", {
     onClick: () => downloadSettlementXlsx(s, db, nameOf),
     className: "text-[11px] px-2 py-1 rounded-lg border border-neutral-200 hover:bg-neutral-50"
+  }, "Download .xlsx")) : E("div", {
+    className: "flex flex-wrap gap-1.5 items-center"
+  }, E("span", {
+    className: "text-[11px] text-neutral-400"
+  }, "Awaiting Finance sign-off"), E("button", {
+    onClick: () => downloadSettlementXlsx(s, db, nameOf),
+    className: "text-[11px] px-2 py-1 rounded-lg border border-neutral-200 hover:bg-neutral-50"
   }, "Download .xlsx"));
   const settlementRow = s => {
     const req = reqs.find(x => x.id === s.costRequestId);
@@ -5935,13 +5952,13 @@ function CostApprovalV({
       className: "mt-2"
     }, settlementReviewActions(s)));
   };
-  const settlementCard = (canReviewDocs || isFD || role === "admin") ? E(Card, {
+  const settlementCard = canViewAllCost ? E(Card, {
     className: "overflow-hidden lg:col-span-2"
   }, cardHead("Advance payment settlements — Finance review", settlementQueue.length), settlementQueue.length ? settlementQueue.map(settlementRow) : emptyRow("No settlement reports waiting on review.")) : null;
   const queueBlock = sub === "queue" && E("div", {
     className: "grid lg:grid-cols-2 gap-5"
   }, myCard, financeCard, deptHeadCard, fdCard, ceoCard, payCard, paidCard, settlementCard);
-  const costAllAccess = canReviewDocs || isFD || isCeoQueue || role === "admin" || role === "ceo";
+  const costAllAccess = canViewAllCost;
   const reportScope = costAllAccess ? reqs : myReqs;
   const openStatus = r => r.status !== "Paid" && r.status !== "Rejected";
   const byStatus = {};
