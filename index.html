@@ -656,7 +656,8 @@ const PERMS = {
   review_equipment: ["hr_manager", "admin", "ceo"],
   approve_equipment_cfo: ["finance_director", "admin", "ceo"],
   approve_equipment_ceo: ["ceo", "admin"],
-  manage_asset_register: ["hr_manager", "finance_director", "admin", "ceo"]
+  manage_asset_register: ["hr_manager", "finance_director", "admin", "ceo"],
+  request_cost: ["requester", "team_leader", "accountant", "finance_director", "ceo", "payer", "admin", "hr_manager"]
 };
 const can = (role, a) => (PERMS[a] || []).includes(role);
 const STATUS = {
@@ -1958,13 +1959,15 @@ function seed() {
     policyDocs: [],
     policyQuestions: [],
     equipmentRequests: [],
+    costRequests: [],
+    costQuestions: [],
     settings: {
       webhookUrl: "https://hook.us2.make.com/bsh3fl3qco185yg6nqm1k27dd14gcj19",
       emailEnabled: true,
       approvalThreshold: DEFAULT_THRESHOLD,
       portalUrl: ""
     },
-    _v: 8
+    _v: 9
   };
 }
 
@@ -2705,6 +2708,42 @@ function employeeIdForAppUser(db, userId) {
   const byName = u && (db.employees || []).find(e => e.name === u.name);
   return byName ? byName.id : null;
 }
+/* ---- Cost & Payment Approval: org-chart resolution helpers.
+   The CFO is whoever is Director of Finance & Business Operations (currently Do Thi Thu
+   Thuy / e2, who holds the "admin" app role and so already bypasses every permission check —
+   this resolves her by department/title data instead of a hardcoded id, so it stays correct
+   if the CFO ever changes). Department Head is resolved from the requester's manager, falling
+   back to any team_leader in the same department. */
+function financeDirectorEmployeeId(db) {
+  const byRole = (db.users || []).find(u => u.role === "finance_director");
+  if (byRole) {
+    const empId = employeeIdForAppUser(db, byRole.id);
+    if (empId) return empId;
+  }
+  const emp = (db.employees || []).find(e => e.dept === "Finance & Business Operations" && (e.level === "Director" || e.role === "Director"));
+  return emp ? emp.id : null;
+}
+function financeDirectorUserId(db) {
+  return appUserIdForEmployee(db, financeDirectorEmployeeId(db));
+}
+function deptHeadUserId(db, employeeId) {
+  const emp = (db.employees || []).find(e => e.id === employeeId);
+  if (!emp) return null;
+  if (emp.managerId) {
+    const mgrUserId = appUserIdForEmployee(db, emp.managerId);
+    if (mgrUserId) return mgrUserId;
+  }
+  const head = (db.users || []).find(u => u.role === "team_leader" && employeeIdForAppUser(db, u.id) && (db.employees || []).find(e => e.id === employeeIdForAppUser(db, u.id) && e.dept === emp.dept && e.id !== employeeId));
+  return head ? head.id : null;
+}
+const FINANCE_EXECUTIVE_EMPLOYEE_ID = "e20"; // Le Nguyen Bao Ngoc — the only Finance Executive authorized to review cost/payment documents.
+const COST_USD_THRESHOLD = 3000;
+const COST_VND_THRESHOLD = 74000000;
+function computeRequiresCeo(amount, currency, outOfBudget) {
+  const n = Number(amount) || 0;
+  const overThreshold = currency === "VND" ? n > COST_VND_THRESHOLD : n > COST_USD_THRESHOLD;
+  return overThreshold || !!outOfBudget;
+}
 const LEAVE_ALL_ACCESS_ROLES = ["admin", "hr_manager", "ceo", "finance_director"];
 // Role matrix for the Leave module: people without an elevated role only ever see their own
 // record; HR (People & Workplace), CEO, CFO (finance_director) and Admin see everyone; a
@@ -3006,6 +3045,341 @@ function checkPolicyEscalations(prevDb) {
   });
   return next;
 }
+/* ================= Cost & Payment Approval =================
+   From "Cost & Payment Approval Process & Policy" (Decision Lab, 26-08-2026). One combined
+   in-app pipeline covering both the PDF's Cost Approval and Payment Approval processes:
+   Submitted (docs attached optionally) -> Finance Executive review (Le Nguyen Bao Ngoc only —
+   checks documents against policy, can bounce back for missing docs) -> Department Head ->
+   Finance Director -> CEO (only if > $3,000 / 74,000,000 VND or flagged out-of-budget, per the
+   policy's condition) -> Approved -> Paid. Rejected at any approval stage sends the requester
+   back to resubmit, matching "If rejected then redo the Cost Approval Request". */
+const COST_PENDING_STATUSES = ["Submitted", "Dept Head Review", "Finance Director Review", "CEO Review"];
+function submitCostRequest(next, {
+  employeeId, dept, title, category, urgency, amount, currency, description, documents, createdBy
+}) {
+  next.costRequests = next.costRequests || [];
+  const id = uid("cr");
+  const now = Date.now();
+  next.costRequests.unshift({
+    id, employeeId, dept, title, category, urgency: urgency || "Normal",
+    amount: Number(amount) || 0, currency: currency || "USD", description: description || "",
+    documents: documents || [], status: "Submitted", requiresCeo: false, outOfBudget: false,
+    financeReviewerId: null, financeReviewedAt: null, financeComment: "",
+    deptheadId: null, deptheadDecisionAt: null, deptheadComment: "",
+    fdId: null, fdDecisionAt: null, fdComment: "",
+    ceoId: null, ceoDecisionAt: null, ceoComment: "",
+    cfoEscalatedAt: null, ceoEscalatedAt: null, paidAt: null, paymentMethod: "",
+    createdBy, createdAt: now, updatedAt: now
+  });
+  next.audit.unshift({
+    id: uid("au"), ts: now, requestId: id, actorId: createdBy, role: "requester",
+    action: "cost_request_submitted", detail: title + " (" + currency + " " + amount + ") submitted for Cost Approval."
+  });
+  return id;
+}
+function financeReviewCost(next, {
+  id, actorId, ok, comment, outOfBudget
+}) {
+  const r = (next.costRequests || []).find(x => x.id === id);
+  if (!r) return;
+  const now = Date.now();
+  r.financeReviewerId = actorId;
+  r.financeReviewedAt = now;
+  r.financeComment = comment || "";
+  r.outOfBudget = !!outOfBudget;
+  r.updatedAt = now;
+  if (!ok) {
+    r.status = "Needs Documents";
+  } else {
+    r.requiresCeo = computeRequiresCeo(r.amount, r.currency, r.outOfBudget);
+    r.status = "Dept Head Review";
+  }
+  next.audit.unshift({
+    id: uid("au"), ts: now, requestId: id, actorId, role: "finance_executive",
+    action: ok ? "cost_finance_reviewed" : "cost_needs_documents",
+    detail: ok ? "Documents matched to policy — moved to Department Head." : "Needs documents: " + (comment || "")
+  });
+}
+function deptHeadDecideCost(next, {
+  id, actorId, approve, comment
+}) {
+  const r = (next.costRequests || []).find(x => x.id === id);
+  if (!r) return;
+  const now = Date.now();
+  r.deptheadId = actorId;
+  r.deptheadDecisionAt = now;
+  r.deptheadComment = comment || "";
+  r.status = approve ? "Finance Director Review" : "Rejected";
+  r.updatedAt = now;
+  next.audit.unshift({
+    id: uid("au"), ts: now, requestId: id, actorId, role: "team_leader",
+    action: approve ? "cost_depthead_approved" : "cost_depthead_rejected", detail: comment || ""
+  });
+}
+function fdDecideCost(next, {
+  id, actorId, approve, comment
+}) {
+  const r = (next.costRequests || []).find(x => x.id === id);
+  if (!r) return;
+  const now = Date.now();
+  r.fdId = actorId;
+  r.fdDecisionAt = now;
+  r.fdComment = comment || "";
+  r.status = !approve ? "Rejected" : r.requiresCeo ? "CEO Review" : "Approved";
+  r.updatedAt = now;
+  next.audit.unshift({
+    id: uid("au"), ts: now, requestId: id, actorId, role: "finance_director",
+    action: approve ? "cost_fd_approved" : "cost_fd_rejected", detail: comment || ""
+  });
+}
+function ceoDecideCost(next, {
+  id, actorId, approve, comment
+}) {
+  const r = (next.costRequests || []).find(x => x.id === id);
+  if (!r) return;
+  const now = Date.now();
+  r.ceoId = actorId;
+  r.ceoDecisionAt = now;
+  r.ceoComment = comment || "";
+  r.status = approve ? "Approved" : "Rejected";
+  r.updatedAt = now;
+  next.audit.unshift({
+    id: uid("au"), ts: now, requestId: id, actorId, role: "ceo",
+    action: approve ? "cost_ceo_approved" : "cost_ceo_rejected", detail: comment || ""
+  });
+}
+function markCostPaid(next, {
+  id, actorId, method
+}) {
+  const r = (next.costRequests || []).find(x => x.id === id);
+  if (!r) return;
+  const now = Date.now();
+  r.status = "Paid";
+  r.paidAt = now;
+  r.paymentMethod = method || "";
+  r.updatedAt = now;
+  next.audit.unshift({
+    id: uid("au"), ts: now, requestId: id, actorId, role: "payer",
+    action: "cost_paid", detail: (method || "") + " — payment recorded."
+  });
+}
+// SLA watchdog: any request sitting in a pending-action status for >48h escalates to the CFO,
+// >72h escalates to the CEO, per "Escalation to the CFO & CEO if any slowness after 48 hours /
+// 72 hours compared to the policy." Idempotent via cfoEscalatedAt/ceoEscalatedAt.
+function checkCostRequestEscalations(prevDb) {
+  const reqs = prevDb.costRequests || [];
+  const now = Date.now();
+  let changed = false;
+  const updated = reqs.map(r => {
+    if (!COST_PENDING_STATUSES.includes(r.status)) return r;
+    const waitingSince = r.updatedAt || r.createdAt;
+    let patch = null;
+    if (!r.ceoEscalatedAt && now - waitingSince >= 72 * 3600 * 1000) patch = {
+      ceoEscalatedAt: now
+    };else if (!r.cfoEscalatedAt && now - waitingSince >= 48 * 3600 * 1000) patch = {
+      cfoEscalatedAt: now
+    };
+    if (!patch) return r;
+    changed = true;
+    return {
+      ...r, ...patch
+    };
+  });
+  if (!changed) return prevDb;
+  const next = clone(prevDb);
+  next.costRequests = updated;
+  next.notifications = next.notifications || [];
+  next.audit = next.audit || [];
+  updated.forEach((r, i) => {
+    const orig = reqs[i];
+    const emp = next.employees.find(e => e.id === r.employeeId);
+    if (r.cfoEscalatedAt && !orig.cfoEscalatedAt) {
+      const cfoId = financeDirectorUserId(next);
+      if (cfoId) next.notifications.unshift({
+        id: uid("n"), ts: Date.now(), read: false, toUser: cfoId, type: "cost_escalation",
+        message: (emp ? emp.name : "A") + "'s cost request “" + r.title + "” has been waiting on " + r.status + " for over 48 hours — flagged to you as CFO."
+      });
+      next.audit.unshift({
+        id: uid("au"), ts: Date.now(), requestId: r.id, actorId: "system", role: "system",
+        action: "cost_request_cfo_escalated", detail: "48h SLA breach — escalated to CFO."
+      });
+    }
+    if (r.ceoEscalatedAt && !orig.ceoEscalatedAt) {
+      const ceoUser = (next.users || []).find(u => u.role === "ceo");
+      if (ceoUser) next.notifications.unshift({
+        id: uid("n"), ts: Date.now(), read: false, toUser: ceoUser.id, type: "cost_escalation",
+        message: (emp ? emp.name : "A") + "'s cost request “" + r.title + "” has been waiting on " + r.status + " for over 72 hours — escalated to you as CEO."
+      });
+      next.audit.unshift({
+        id: uid("au"), ts: Date.now(), requestId: r.id, actorId: "system", role: "system",
+        action: "cost_request_ceo_escalated", detail: "72h SLA breach — escalated to CEO."
+      });
+    }
+  });
+  return next;
+}
+/* ---- Cost & Payment Q&A assistant — mirrors the Annual Leave Policy Q&A assistant exactly
+   (POLICY_FAQ / scorePolicyMatch / askPolicyQuestion / answerPolicyQuestion / checkPolicyEscalations
+   above), sourced from "Cost & Payment Approval Process & Policy". Unanswerable questions escalate
+   to the Finance Dept (Ngoc, then the Finance Director) instead of HR; the SLA clock is 48h to the
+   CFO and 72h to the CEO, per the user's explicit instruction, instead of Leave's 1h/4h to HR. */
+const COST_POLICY_FAQ = [{
+  topic: "process", keywords: ["how does it work", "process", "flow", "workflow", "who approves", "approval chain", "steps"],
+  a: "Submit your request with supporting documents attached. Le Nguyen Bao Ngoc (Finance Executive) reviews the documents and matches them to policy first — she may bounce it back if something's missing. Once cleared, it goes to your Department Head, then the Finance Director (CFO). If the amount is over the threshold or flagged out-of-budget, it also needs CEO approval before it's marked Approved and paid."
+}, {
+  topic: "threshold", keywords: ["threshold", "limit", "ceo approval", "when does ceo", "over how much", "out of budget", "out-of-budget"],
+  a: "Requests over USD 3,000 or VND 74,000,000 — or anything flagged out-of-budget — require CEO approval on top of the normal Department Head → Finance Director chain. Below that, Finance Director sign-off is final."
+}, {
+  topic: "documents", keywords: ["document", "invoice", "attach", "supporting doc", "receipt", "what do i need"],
+  a: "Attach the invoice/receipt and any supporting documents for your cost category when you submit. Ngoc checks these against policy before the request moves forward — incomplete documentation gets sent back as “Needs Documents” rather than rejected outright."
+}, {
+  topic: "vat_invoice", keywords: ["vat", "red invoice", "tax invoice", "company invoice"],
+  a: "A proper VAT invoice (red invoice) is required for vendor payments so the cost is deductible and compliant — check with Finance if you're unsure whether your vendor needs to issue one."
+}, {
+  topic: "timing", keywords: ["how long", "turnaround", "how fast", "urgent", "normal", "when will i", "processing time"],
+  a: "Normal requests follow the regular monthly processing cycle; Urgent requests are prioritized for faster turnaround. Mark your request Urgent only when it genuinely can't wait for the normal cycle."
+}, {
+  topic: "payment_date", keywords: ["payment date", "when paid", "pay day", "payment cycle", "monthly cycle"],
+  a: "Payments run on the standard monthly cycle (mid-month and end-of-month batches) once a request is fully Approved; Urgent requests are paid outside the batch, typically within 1 working day of approval."
+}, {
+  topic: "reject", keywords: ["reject", "rejected", "denied", "what if rejected"],
+  a: "If any approver rejects your request, you'll need to resubmit a new Cost Approval Request — address the reason given in the rejection comment before resubmitting."
+}, {
+  topic: "how_to_submit", keywords: ["how do i submit", "how to request", "how to apply", "submit a request", "where do i"],
+  a: "Go to Cost & Payment approval → New request, choose your category and urgency, enter the amount and description, attach your documents, and submit. Ngoc's document review is the first step."
+}, {
+  topic: "escalation", keywords: ["escalate", "escalation", "slow", "stuck", "delay", "taking too long"],
+  a: "If a request sits without action for 48 hours it's automatically escalated to the CFO (Finance Director), and after 72 hours to the CEO — you don't need to chase it manually."
+}];
+function scoreCostPolicyMatch(question) {
+  const q = String(question || "").toLowerCase();
+  let best = null,
+    bestScore = 0;
+  COST_POLICY_FAQ.forEach(entry => {
+    let score = 0;
+    entry.keywords.forEach(k => {
+      if (q.indexOf(k) !== -1) score += k.split(" ").length;
+    });
+    if (score > bestScore) {
+      bestScore = score;
+      best = entry;
+    }
+  });
+  const confidence = best ? Math.min(1, 0.35 + bestScore * 0.2) : 0;
+  return {
+    entry: best, confidence
+  };
+}
+const COST_POLICY_AI_CONFIDENCE_THRESHOLD = 0.5;
+function askCostQuestion(next, {
+  employeeId, question, askedBy, askedRole
+}) {
+  next.costQuestions = next.costQuestions || [];
+  next.notifications = next.notifications || [];
+  const text = String(question || "").trim();
+  const id = uid("cq");
+  const now = Date.now();
+  const emp = next.employees.find(e => e.id === employeeId);
+  const {
+    entry, confidence
+  } = scoreCostPolicyMatch(text);
+  const escalate = !entry || confidence < COST_POLICY_AI_CONFIDENCE_THRESHOLD;
+  next.costQuestions.unshift({
+    id, employeeId, question: text,
+    aiAnswer: entry ? entry.a : "",
+    aiConfidence: confidence,
+    aiTopic: entry ? entry.topic : "",
+    status: escalate ? "escalated" : "ai_answered",
+    financeAnswer: "", financeAnsweredBy: "", financeAnsweredAt: null,
+    cfoEscalatedAt: null, ceoEscalatedAt: null,
+    createdAt: now
+  });
+  next.audit.unshift({
+    id: uid("au"), ts: now, requestId: id, actorId: askedBy, role: askedRole,
+    action: escalate ? "cost_question_escalated" : "cost_question_answered",
+    detail: (emp ? emp.name + " asked" : "Question") + ": “" + text + "”" + (escalate ? " — outside the assistant's knowledge, sent to Finance." : " — answered from policy (" + Math.round(confidence * 100) + "% match).")
+  });
+  if (escalate) {
+    const fEmpId = FINANCE_EXECUTIVE_EMPLOYEE_ID;
+    const fUserId = appUserIdForEmployee(next, fEmpId);
+    next.notifications.unshift({
+      id: uid("n"), ts: now, read: false, toUser: fUserId || undefined, toRole: fUserId ? undefined : ["finance_director", "admin"],
+      message: (emp ? emp.name : "Someone") + " asked a cost/payment policy question the assistant couldn't answer: “" + text + "”",
+      type: "cost_question"
+    });
+  }
+  return id;
+}
+function answerCostQuestion(next, {
+  questionId, answer, actorId, actorRole
+}) {
+  next.costQuestions = next.costQuestions || [];
+  const i = next.costQuestions.findIndex(q => q.id === questionId);
+  if (i < 0) return;
+  const now = Date.now();
+  const q = next.costQuestions[i];
+  next.costQuestions[i] = {
+    ...q, status: "finance_answered", financeAnswer: answer, financeAnsweredBy: actorId, financeAnsweredAt: now
+  };
+  next.audit.unshift({
+    id: uid("au"), ts: now, requestId: questionId, actorId, role: actorRole,
+    action: "cost_question_finance_answered", detail: "Finance answered: “" + answer + "”"
+  });
+}
+// SLA watchdog for unanswered Cost Q&A: 48h -> CFO, 72h -> CEO, mirroring checkCostRequestEscalations.
+function checkCostQuestionEscalations(prevDb) {
+  const qs = prevDb.costQuestions || [];
+  const now = Date.now();
+  let changed = false;
+  const updated = qs.map(q => {
+    if (q.status !== "escalated") return q;
+    if (!q.ceoEscalatedAt && now - q.createdAt >= 72 * 3600 * 1000) {
+      changed = true;
+      return {
+        ...q, ceoEscalatedAt: now
+      };
+    }
+    if (!q.cfoEscalatedAt && now - q.createdAt >= 48 * 3600 * 1000) {
+      changed = true;
+      return {
+        ...q, cfoEscalatedAt: now
+      };
+    }
+    return q;
+  });
+  if (!changed) return prevDb;
+  const next = clone(prevDb);
+  next.costQuestions = updated;
+  next.notifications = next.notifications || [];
+  next.audit = next.audit || [];
+  updated.forEach((q, i) => {
+    const orig = qs[i];
+    const emp = next.employees.find(e => e.id === q.employeeId);
+    if (q.cfoEscalatedAt && !orig.cfoEscalatedAt) {
+      const cfoId = financeDirectorUserId(next);
+      if (cfoId) next.notifications.unshift({
+        id: uid("n"), ts: Date.now(), read: false, toUser: cfoId, type: "cost_question_escalation",
+        message: "Escalated to you as CFO: Finance hasn't answered " + (emp ? emp.name : "a") + "’s cost policy question after 48 hours: “" + q.question + "”"
+      });
+      next.audit.unshift({
+        id: uid("au"), ts: Date.now(), requestId: q.id, actorId: "system", role: "system",
+        action: "cost_question_cfo_escalated", detail: "48h escalation sent to CFO — still no answer."
+      });
+    }
+    if (q.ceoEscalatedAt && !orig.ceoEscalatedAt) {
+      const ceoUser = (next.users || []).find(u => u.role === "ceo");
+      if (ceoUser) next.notifications.unshift({
+        id: uid("n"), ts: Date.now(), read: false, toUser: ceoUser.id, type: "cost_question_escalation",
+        message: "Escalated to you as CEO: Finance hasn't answered " + (emp ? emp.name : "a") + "’s cost policy question after 72 hours: “" + q.question + "”"
+      });
+      next.audit.unshift({
+        id: uid("au"), ts: Date.now(), requestId: q.id, actorId: "system", role: "system",
+        action: "cost_question_ceo_escalated", detail: "72h escalation sent to CEO — still no answer."
+      });
+    }
+  });
+  return next;
+}
 function PolicyDocCard({
   db
 }) {
@@ -3195,6 +3569,194 @@ function PolicyQABox({
       })),
       onKeyDown: ev => ev.key === "Enter" && reply(q.id),
       placeholder: "Reply as HR...", className: INP + " flex-1 text-[12.5px] py-1"
+    }), E("button", {
+      onClick: () => reply(q.id), className: "text-xs bg-neutral-900 text-white rounded-full px-3 py-1.5 shrink-0"
+    }, "Reply")));
+  }))));
+}
+function CostPolicyDocCard({
+  db
+}) {
+  const E = React.createElement;
+  const [big, setBig] = useState(false);
+  const doc = (db.policyDocs || []).find(p => p.id === "pol_cost_v1");
+  const url = doc && doc.sourceUrl;
+  return E(Card, {
+    className: "overflow-hidden"
+  }, E("div", {
+    className: "px-4 py-3 border-b border-neutral-100 flex items-center justify-between flex-wrap gap-2"
+  }, E("div", null, E("div", {
+    className: "font-display text-sm uppercase tracking-wide", style: {
+      fontWeight: 700
+    }
+  }, "Original policy document"), E("div", {
+    className: "text-[11px] text-neutral-400 mt-0.5"
+  }, doc ? doc.title + " · v" + doc.version + " · effective " + fmtDateY(doc.effectiveDate) + " · approved by " + doc.approvedBy : "Cost & Payment Approval Process & Policy — v1.0")), url && E("div", {
+    className: "flex items-center gap-2"
+  }, E("button", {
+    onClick: () => setBig(b => !b),
+    className: "text-xs bg-white ring-1 ring-neutral-200 hover:bg-neutral-50 rounded-full px-3 py-1.5"
+  }, big ? "Collapse" : "Expand viewer"), E("a", {
+    href: url, target: "_blank", rel: "noreferrer",
+    className: "text-xs bg-neutral-900 text-white rounded-full px-3 py-1.5 hover:bg-neutral-700 inline-flex items-center gap-1.5"
+  }, E(Icon, {
+    n: "file", size: 12
+  }), " Open / download original PDF"))), url ? E("iframe", {
+    src: url,
+    title: "Cost & Payment Approval Policy PDF",
+    style: {
+      width: "100%", height: big ? "85vh" : "480px", border: 0, display: "block"
+    }
+  }) : E("div", {
+    className: "px-4 py-6 text-[12px] text-neutral-400"
+  }, "Policy document not yet loaded."), E("div", {
+    className: "px-4 py-2 text-[11px] text-neutral-400 border-t border-neutral-100"
+  }, "This is the unedited original PDF — stored in Supabase Storage (contracts/policies/) and registered in the policy_documents table. The summary above is a quick-reference only; this document is the source of truth."));
+}
+function CostPolicySummaryCard() {
+  const E = React.createElement;
+  const Section = ({
+    title, children
+  }) => E("div", {
+    className: "space-y-1"
+  }, E("div", {
+    className: "text-[11px] uppercase tracking-wide text-neutral-400 font-semibold"
+  }, title), E("div", {
+    className: "text-neutral-700 leading-snug"
+  }, children));
+  const List = items => E("ul", {
+    className: "space-y-0.5 list-disc pl-4"
+  }, items.map((it, i) => E("li", {
+    key: i
+  }, it)));
+  return E(Card, {
+    className: "p-4 space-y-4"
+  }, E("div", {
+    className: "flex items-center justify-between flex-wrap gap-1"
+  }, E("div", {
+    className: "font-display text-[13px] uppercase tracking-wide", style: {
+      fontWeight: 700
+    }
+  }, "Cost & Payment Approval Policy v1.0"), E("span", {
+    className: "text-[11px] text-neutral-400"
+  }, "Effective Aug 26, 2026")), E("div", {
+    className: "grid grid-cols-1 sm:grid-cols-2 gap-4 text-[12.5px]"
+  }, E(Section, {
+    title: "Approval chain"
+  }, List(["Ngoc (Finance Executive) reviews attached documents and matches them to policy first", "Department Head approves next", "Finance Director (CFO) approves next", "CEO approves too if over threshold or flagged out-of-budget", "Then it's Approved and moves to Ready for Payment"])), E(Section, {
+    title: "CEO threshold"
+  }, List(["Over USD 3,000, or", "over VND 74,000,000, or", "flagged out-of-budget by Finance — any one of these routes it to the CEO on top of the normal chain."])), E(Section, {
+    title: "Timing"
+  }, List(["Normal — standard monthly payment cycle", "Urgent — prioritized, paid within ~1 working day of approval"])), E(Section, {
+    title: "Documents"
+  }, "Attach the invoice/receipt and supporting documents for your category at submission. Ngoc checks these first — incomplete documentation is sent back as “Needs Documents” rather than rejected."), E(Section, {
+    title: "Rejections"
+  }, "A rejection at any stage means resubmitting a new request addressing the reason given."), E(Section, {
+    title: "Escalation (SLA)"
+  }, "If a request sits without action, it's automatically escalated to the CFO after 48 hours and to the CEO after 72 hours — same for unanswered policy questions below.")));
+}
+function CostQABox({
+  db, me, role, update
+}) {
+  const E = React.createElement;
+  const [text, setText] = useState("");
+  const [replyDrafts, setReplyDrafts] = useState({});
+  const myEmpId = employeeIdForAppUser(db, me && me.id);
+  const cfoUserId = financeDirectorUserId(db);
+  const canAnswer = role === "admin" || role === "ceo" || myEmpId === FINANCE_EXECUTIVE_EMPLOYEE_ID || (me && me.id === cfoUserId);
+  const isAllAccess = role === "admin" || role === "ceo" || role === "finance_director";
+  const questions = (db.costQuestions || []).filter(q => isAllAccess || q.employeeId === myEmpId).slice().sort((a, b) => b.createdAt - a.createdAt);
+  const Tag = ({
+    tone, children
+  }) => E("span", {
+    className: "inline-flex items-center text-[11px] font-medium px-2 py-0.5 rounded-full ring-1 ring-inset " + tone
+  }, children);
+  const statusTag = q => {
+    if (q.status === "ai_answered") return E(Tag, {
+      tone: "bg-emerald-50 text-emerald-700 ring-emerald-200"
+    }, "Answered by policy assistant");
+    if (q.status === "finance_answered") return E(Tag, {
+      tone: "bg-emerald-50 text-emerald-700 ring-emerald-200"
+    }, "Answered by Finance");
+    if (q.ceoEscalatedAt) return E(Tag, {
+      tone: "bg-rose-50 text-rose-700 ring-rose-200"
+    }, "Escalated to CEO (72h+)");
+    if (q.cfoEscalatedAt) return E(Tag, {
+      tone: "bg-amber-50 text-amber-800 ring-amber-200"
+    }, "Escalated to CFO (48h+)");
+    return E(Tag, {
+      tone: "bg-blue-50 text-blue-700 ring-blue-200"
+    }, "Escalated to Finance — awaiting reply");
+  };
+  const ask = () => {
+    if (!text.trim() || !myEmpId) return;
+    update(next => askCostQuestion(next, {
+      employeeId: myEmpId, question: text, askedBy: me.id, askedRole: role
+    }));
+    setText("");
+  };
+  const reply = qid => {
+    const answer = (replyDrafts[qid] || "").trim();
+    if (!answer) return;
+    update(next => answerCostQuestion(next, {
+      questionId: qid, answer, actorId: me.id, actorRole: role
+    }));
+    setReplyDrafts(d => ({
+      ...d, [qid]: ""
+    }));
+  };
+  return E(Card, {
+    className: "overflow-hidden"
+  }, E("div", {
+    className: "px-4 py-3 border-b border-neutral-100"
+  }, E("div", {
+    className: "font-display text-sm uppercase tracking-wide", style: {
+      fontWeight: 700
+    }
+  }, "Ask the cost & payment assistant"), E("div", {
+    className: "text-[11px] text-neutral-400 mt-0.5"
+  }, "Answers come from the Cost & Payment Approval Policy v1.0. When it can't answer confidently, Finance is notified and can reply here — with a 48h escalation to the CFO and 72h to the CEO if nobody's answered yet.")), E("div", {
+    className: "p-4 space-y-3"
+  }, myEmpId ? E("div", {
+    className: "flex gap-2"
+  }, E("input", {
+    type: "text", value: text, onChange: ev => setText(ev.target.value),
+    onKeyDown: ev => ev.key === "Enter" && ask(),
+    placeholder: "e.g. When does a request need CEO approval?", className: INP + " flex-1"
+  }), E("button", {
+    onClick: ask, className: "text-sm bg-neutral-900 text-white rounded-full px-4 py-1.5 shrink-0"
+  }, "Ask")) : E("div", {
+    className: "text-[12px] text-neutral-400"
+  }, "No linked employee record for this account — can't ask as this user."), questions.length === 0 && E("div", {
+    className: "text-sm text-neutral-400 text-center py-4"
+  }, "No questions yet."), E("div", {
+    className: "space-y-3"
+  }, questions.slice(0, 20).map(q => {
+    const emp = db.employees.find(e => e.id === q.employeeId);
+    return E("div", {
+      key: q.id, className: "bg-neutral-50 rounded-xl px-3 py-2.5 space-y-1.5"
+    }, E("div", {
+      className: "flex items-center justify-between gap-2 flex-wrap"
+    }, E("div", {
+      className: "text-sm font-medium"
+    }, isAllAccess ? (emp ? emp.name : "—") + " asked" : "You asked"), statusTag(q)), E("div", {
+      className: "text-[13px] text-neutral-700"
+    }, "“", q.question, "”"), q.aiAnswer && E("div", {
+      className: "text-[12.5px] text-neutral-600 flex items-start gap-1.5"
+    }, E(Icon, {
+      n: "check", size: 12, className: "mt-0.5 shrink-0 text-emerald-600"
+    }), q.aiAnswer), q.financeAnswer && E("div", {
+      className: "text-[12.5px] text-neutral-600 flex items-start gap-1.5"
+    }, E(Icon, {
+      n: "check", size: 12, className: "mt-0.5 shrink-0 text-emerald-600"
+    }), E("b", null, "Finance: "), q.financeAnswer), q.status === "escalated" && canAnswer && E("div", {
+      className: "flex gap-2 pt-1"
+    }, E("input", {
+      type: "text", value: replyDrafts[q.id] || "", onChange: ev => setReplyDrafts(d => ({
+        ...d, [q.id]: ev.target.value
+      })),
+      onKeyDown: ev => ev.key === "Enter" && reply(q.id),
+      placeholder: "Reply as Finance...", className: INP + " flex-1 text-[12.5px] py-1"
     }), E("button", {
       onClick: () => reply(q.id), className: "text-xs bg-neutral-900 text-white rounded-full px-3 py-1.5 shrink-0"
     }, "Reply")));
@@ -4528,6 +5090,325 @@ function EquipmentV({
     className: "max-w-6xl grid lg:grid-cols-2 gap-5"
   }, myCard, hrCard, cfoCard, ceoCard);
 }
+const COST_STCLS = {
+  Submitted: "bg-blue-50 text-blue-700",
+  "Needs Documents": "bg-amber-50 text-amber-800",
+  "Dept Head Review": "bg-amber-50 text-amber-800",
+  "Finance Director Review": "bg-violet-50 text-violet-700",
+  "CEO Review": "bg-violet-50 text-violet-700",
+  Approved: "bg-cyan-50 text-cyan-700",
+  Paid: "bg-emerald-50 text-emerald-700",
+  Rejected: "bg-rose-50 text-rose-700"
+};
+const COST_CATEGORIES = ["Vendor Payment", "Travel & Transport", "Office Supplies & Equipment", "Software & Subscriptions", "Marketing & Events", "Client Gift", "Utilities", "Other"];
+function CostApprovalV({
+  db, update, role, me, meId, myEmpId, nameOf
+}) {
+  const E = React.createElement;
+  const [sub, setSub] = useState("queue");
+  const [form, setForm] = useState({
+    category: COST_CATEGORIES[0], urgency: "Normal", amount: "", currency: "USD", title: "", description: "", documents: ""
+  });
+  const [comment, setComment] = useState({});
+  const [outOfBudget, setOutOfBudget] = useState({});
+  const [payMethod, setPayMethod] = useState({});
+  const reqs = db.costRequests || [];
+  const myReqs = reqs.filter(r => r.employeeId === myEmpId);
+  const emp = (db.employees || []).find(e => e.id === myEmpId);
+  const canRequest = can(role, "request_cost");
+  const canReviewDocs = myEmpId === FINANCE_EXECUTIVE_EMPLOYEE_ID || role === "admin";
+  const cfoUserId = financeDirectorUserId(db);
+  const isFD = (meId && meId === cfoUserId) || role === "admin";
+  const isCeoQueue = role === "ceo" || role === "admin";
+  const canMarkPaid = isFD || canReviewDocs || role === "payer" || role === "admin";
+  const docsList = s => String(s || "").split(/\n+/).map(x => x.trim()).filter(Boolean);
+  const parseAmt = (a, c) => {
+    const n = Number(a) || 0;
+    const over = c === "VND" ? n > COST_VND_THRESHOLD : n > COST_USD_THRESHOLD;
+    return {
+      n, over
+    };
+  };
+  const submit = () => {
+    if (!myEmpId || !form.title.trim() || !form.amount || Number(form.amount) <= 0) return;
+    update(next => submitCostRequest(next, {
+      employeeId: myEmpId, dept: emp ? emp.dept : "", title: form.title.trim(), category: form.category,
+      urgency: form.urgency, amount: Number(form.amount), currency: form.currency, description: form.description,
+      documents: docsList(form.documents), createdBy: meId
+    }));
+    setForm({
+      category: COST_CATEGORIES[0], urgency: "Normal", amount: "", currency: form.currency, title: "", description: "", documents: ""
+    });
+  };
+  const resubmit = id => update(next => {
+    const r = (next.costRequests || []).find(x => x.id === id);
+    if (!r) return;
+    r.status = "Submitted";
+    r.description = (r.description ? r.description + "\n\n" : "") + "[Resubmitted with additional documents]";
+    if (comment[id]) r.documents = [...(r.documents || []), ...docsList(comment[id])];
+    r.updatedAt = Date.now();
+    next.audit.unshift({
+      id: uid("au"), ts: Date.now(), requestId: id, actorId: meId, role,
+      action: "cost_request_resubmitted", detail: "Requester resubmitted with more documents."
+    });
+    setComment(c => ({
+      ...c, [id]: ""
+    }));
+  });
+  const financeAct = (id, ok) => update(next => financeReviewCost(next, {
+    id, actorId: meId, ok, comment: comment[id] || "", outOfBudget: !!outOfBudget[id]
+  }));
+  const deptHeadAct = (id, approve) => update(next => deptHeadDecideCost(next, {
+    id, actorId: meId, approve, comment: comment[id] || ""
+  }));
+  const fdAct = (id, approve) => update(next => fdDecideCost(next, {
+    id, actorId: meId, approve, comment: comment[id] || ""
+  }));
+  const ceoAct = (id, approve) => update(next => ceoDecideCost(next, {
+    id, actorId: meId, approve, comment: comment[id] || ""
+  }));
+  const markPaidAct = id => update(next => markCostPaid(next, {
+    id, actorId: meId, method: payMethod[id] || "Bank transfer"
+  }));
+  const money2 = (n, c) => (c === "VND" ? Number(n || 0).toLocaleString("en-US") + "₫" : "$" + Number(n || 0).toLocaleString("en-US"));
+  const CommentBox = id => E("input", {
+    className: "text-[12px] border border-neutral-200 rounded-lg px-2 py-1 mr-1.5 w-52",
+    placeholder: "comment (optional)", value: comment[id] || "",
+    onChange: ev => setComment(c => ({
+      ...c, [id]: ev.target.value
+    }))
+  });
+  const row = (r, actionsNode) => {
+    const requester = db.employees.find(e => e.id === r.employeeId);
+    const dh = deptHeadUserId(db, r.employeeId);
+    const dhEmp = dh ? db.employees.find(e => e.id === employeeIdForAppUser(db, dh)) : null;
+    return E("div", {
+      key: r.id, className: "px-4 py-3 border-b border-neutral-50 last:border-0"
+    }, E("div", {
+      className: "flex items-start justify-between gap-3 flex-wrap"
+    }, E("div", {
+      className: "min-w-0"
+    }, E("div", {
+      className: "font-medium text-sm flex items-center gap-2 flex-wrap"
+    }, r.title, E("span", {
+      className: `text-[11px] px-2 py-0.5 rounded-full ${COST_STCLS[r.status] || "bg-neutral-100 text-neutral-600"}`
+    }, r.status), r.requiresCeo && E("span", {
+      className: "text-[11px] px-2 py-0.5 rounded-full bg-rose-50 text-rose-600"
+    }, "Needs CEO"), r.urgency === "Urgent" && E("span", {
+      className: "text-[11px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700"
+    }, "Urgent")), E("div", {
+      className: "text-[12px] text-neutral-600 mt-0.5"
+    }, requester ? requester.name : "—", " · ", r.dept, " · ", r.category, " · ", money2(r.amount, r.currency), dhEmp ? " · dept head: " + dhEmp.name : ""), r.description && E("div", {
+      className: "text-[12px] text-neutral-500 mt-1"
+    }, "“", r.description, "”"), (r.documents || []).length > 0 && E("div", {
+      className: "text-[11px] text-neutral-400 mt-1"
+    }, "Docs: ", r.documents.map((d, i) => E(React.Fragment, {
+      key: i
+    }, i > 0 && " · ", /^https?:\/\//.test(d) ? E("a", {
+      href: d, target: "_blank", rel: "noreferrer", className: "underline"
+    }, "link " + (i + 1)) : d))), r.financeComment && E("div", {
+      className: "text-[11px] text-neutral-400 mt-1"
+    }, "Ngoc (Finance): ", r.financeComment), r.deptheadComment && E("div", {
+      className: "text-[11px] text-neutral-400 mt-0.5"
+    }, "Dept Head: ", r.deptheadComment), r.fdComment && E("div", {
+      className: "text-[11px] text-neutral-400 mt-0.5"
+    }, "Finance Director: ", r.fdComment), r.ceoComment && E("div", {
+      className: "text-[11px] text-neutral-400 mt-0.5"
+    }, "CEO: ", r.ceoComment), r.paidAt && E("div", {
+      className: "text-[11px] text-emerald-600 mt-0.5"
+    }, "Paid via ", r.paymentMethod || "—", " on ", fmtDate(iso(new Date(r.paidAt)))), (r.cfoEscalatedAt || r.ceoEscalatedAt) && E("div", {
+      className: "text-[11px] text-rose-500 mt-0.5"
+    }, r.ceoEscalatedAt ? "Escalated to CEO — 72h+ without action." : "Escalated to CFO — 48h+ without action."))), actionsNode && E("div", {
+      className: "mt-2"
+    }, actionsNode));
+  };
+  const TABS = [{
+    id: "queue", label: "Requests"
+  }, {
+    id: "policy", label: "Policy & assistant"
+  }];
+  const financeQueue = reqs.filter(r => r.status === "Submitted");
+  const deptHeadQueue = reqs.filter(r => r.status === "Dept Head Review" && (role === "admin" || deptHeadUserId(db, r.employeeId) === meId));
+  const fdQueue = reqs.filter(r => r.status === "Finance Director Review");
+  const ceoQueue = reqs.filter(r => r.status === "CEO Review");
+  const payQueue = reqs.filter(r => r.status === "Approved");
+  const paidList = reqs.filter(r => r.status === "Paid").slice(0, 15);
+  const cardHead = (title, count) => E("div", {
+    className: "px-4 py-3 border-b border-neutral-100 flex items-center justify-between"
+  }, E("div", {
+    className: "font-display text-sm uppercase tracking-wide", style: {
+      fontWeight: 700
+    }
+  }, title), count != null && E("span", {
+    className: "text-[11px] text-neutral-400"
+  }, count, " awaiting"));
+  const emptyRow = msg => E("div", {
+    className: "px-4 py-8 text-center text-sm text-neutral-400"
+  }, msg);
+  const tabsRow = E("div", {
+    className: "flex items-center gap-2 flex-wrap"
+  }, TABS.map(t => E("button", {
+    key: t.id, onClick: () => setSub(t.id),
+    className: "text-sm px-3 py-1.5 rounded-full " + (sub === t.id ? "bg-neutral-900 text-white" : "bg-white ring-1 ring-neutral-200 hover:bg-neutral-50")
+  }, t.label)));
+  const policyBlock = sub === "policy" && E(React.Fragment, null, E(CostPolicySummaryCard), E(CostQABox, {
+    db, me, role, update
+  }), E(CostPolicyDocCard, {
+    db
+  }));
+  const thresholdWarn = form.amount && parseAmt(form.amount, form.currency).over ? E("div", {
+    className: "text-[11px] text-amber-700 bg-amber-50 rounded-lg px-2 py-1"
+  }, "Over the ", money2(form.currency === "VND" ? COST_VND_THRESHOLD : COST_USD_THRESHOLD, form.currency), " threshold — this will need CEO approval too.") : null;
+  const submitForm = canRequest && myEmpId ? E("div", {
+    className: "p-4 space-y-2"
+  }, E(Field, {
+    label: "Title"
+  }, E("input", {
+    className: INP, value: form.title, onChange: ev => setForm(f => ({
+      ...f, title: ev.target.value
+    })), placeholder: "e.g. Q3 AWS invoice"
+  })), E("div", {
+    className: "grid grid-cols-2 gap-2"
+  }, E(Field, {
+    label: "Category"
+  }, E("select", {
+    className: INP, value: form.category, onChange: ev => setForm(f => ({
+      ...f, category: ev.target.value
+    }))
+  }, COST_CATEGORIES.map(c => E("option", {
+    key: c, value: c
+  }, c)))), E(Field, {
+    label: "Urgency"
+  }, E("select", {
+    className: INP, value: form.urgency, onChange: ev => setForm(f => ({
+      ...f, urgency: ev.target.value
+    }))
+  }, E("option", null, "Normal"), E("option", null, "Urgent")))), E("div", {
+    className: "grid grid-cols-2 gap-2"
+  }, E(Field, {
+    label: "Amount"
+  }, E("input", {
+    type: "number", className: INP, value: form.amount, onChange: ev => setForm(f => ({
+      ...f, amount: ev.target.value
+    })), placeholder: "0"
+  })), E(Field, {
+    label: "Currency"
+  }, E("select", {
+    className: INP, value: form.currency, onChange: ev => setForm(f => ({
+      ...f, currency: ev.target.value
+    }))
+  }, E("option", null, "USD"), E("option", null, "VND")))), thresholdWarn, E(Field, {
+    label: "Description"
+  }, E("textarea", {
+    className: INP, rows: 2, value: form.description, onChange: ev => setForm(f => ({
+      ...f, description: ev.target.value
+    })), placeholder: "What's this for?"
+  })), E(Field, {
+    label: "Invoice / document links (one per line)"
+  }, E("textarea", {
+    className: INP, rows: 2, value: form.documents, onChange: ev => setForm(f => ({
+      ...f, documents: ev.target.value
+    })), placeholder: "https://..."
+  })), E("button", {
+    onClick: submit,
+    disabled: !form.title.trim() || !form.amount,
+    className: "text-[12px] px-3 py-1.5 rounded-lg bg-neutral-900 text-white disabled:opacity-40"
+  }, "Submit — Ngoc reviews documents first")) : E("div", {
+    className: "px-4 py-3 text-[12px] text-neutral-400"
+  }, "No linked employee record for this account — can't submit as this user.");
+  const myList = myReqs.length > 0 ? E("div", {
+    className: "border-t border-neutral-100"
+  }, myReqs.map(r => row(r, r.status === "Needs Documents" ? E("div", {
+    className: "flex gap-2"
+  }, CommentBox(r.id), E("button", {
+    onClick: () => resubmit(r.id),
+    className: "text-[11px] px-2 py-1 rounded-lg bg-neutral-900 text-white"
+  }, "Add docs (paste links above) & resubmit")) : null))) : null;
+  const myCard = E(Card, {
+    className: "overflow-hidden"
+  }, cardHead("New cost / payment request", null), submitForm, myList);
+  const financeActions = r => E("div", {
+    className: "space-y-1.5"
+  }, E("label", {
+    className: "inline-flex items-center gap-1.5 text-[11px] text-neutral-500 mr-2"
+  }, E("input", {
+    type: "checkbox", checked: !!outOfBudget[r.id], onChange: ev => setOutOfBudget(o => ({
+      ...o, [r.id]: ev.target.checked
+    }))
+  }), "flag out-of-budget (forces CEO approval)"), E("div", {
+    className: "flex flex-wrap gap-1.5"
+  }, CommentBox(r.id), E("button", {
+    onClick: () => financeAct(r.id, true),
+    className: "text-[11px] px-2 py-1 rounded-lg bg-emerald-600 text-white"
+  }, "Docs match policy → Dept Head"), E("button", {
+    onClick: () => financeAct(r.id, false),
+    className: "text-[11px] px-2 py-1 rounded-lg bg-amber-50 text-amber-800"
+  }, "Needs documents")));
+  const financeCard = canReviewDocs ? E(Card, {
+    className: "overflow-hidden"
+  }, cardHead("Finance Executive review (Ngoc)", financeQueue.length), financeQueue.length ? financeQueue.map(r => row(r, financeActions(r))) : emptyRow("Nothing waiting on document review.")) : null;
+  const deptHeadActions = r => E("div", {
+    className: "flex flex-wrap gap-1.5"
+  }, CommentBox(r.id), E("button", {
+    onClick: () => deptHeadAct(r.id, true),
+    className: "text-[11px] px-2 py-1 rounded-lg bg-emerald-600 text-white"
+  }, "Approve"), E("button", {
+    onClick: () => deptHeadAct(r.id, false),
+    className: "text-[11px] px-2 py-1 rounded-lg bg-rose-50 text-rose-700"
+  }, "Reject"));
+  const isDeptHeadRole = role === "team_leader" || role === "admin" || role === "ceo";
+  const deptHeadCard = isDeptHeadRole ? E(Card, {
+    className: "overflow-hidden"
+  }, cardHead("Department Head approval", deptHeadQueue.length), deptHeadQueue.length ? deptHeadQueue.map(r => row(r, deptHeadActions(r))) : emptyRow("Nothing waiting on you as Department Head.")) : null;
+  const fdActions = r => E("div", {
+    className: "flex flex-wrap gap-1.5"
+  }, CommentBox(r.id), E("button", {
+    onClick: () => fdAct(r.id, true),
+    className: "text-[11px] px-2 py-1 rounded-lg bg-emerald-600 text-white"
+  }, r.requiresCeo ? "Approve → CEO" : "Final approve"), E("button", {
+    onClick: () => fdAct(r.id, false),
+    className: "text-[11px] px-2 py-1 rounded-lg bg-rose-50 text-rose-700"
+  }, "Reject"));
+  const fdCard = isFD ? E(Card, {
+    className: "overflow-hidden"
+  }, cardHead("Finance Director (CFO) approval", fdQueue.length), fdQueue.length ? fdQueue.map(r => row(r, fdActions(r))) : emptyRow("Nothing waiting on Finance Director.")) : null;
+  const ceoActions = r => E("div", {
+    className: "flex flex-wrap gap-1.5"
+  }, CommentBox(r.id), E("button", {
+    onClick: () => ceoAct(r.id, true),
+    className: "text-[11px] px-2 py-1 rounded-lg bg-emerald-600 text-white"
+  }, "Final approve"), E("button", {
+    onClick: () => ceoAct(r.id, false),
+    className: "text-[11px] px-2 py-1 rounded-lg bg-rose-50 text-rose-700"
+  }, "Reject"));
+  const ceoCard = isCeoQueue ? E(Card, {
+    className: "overflow-hidden"
+  }, cardHead("CEO final approval", ceoQueue.length), ceoQueue.length ? ceoQueue.map(r => row(r, ceoActions(r))) : emptyRow("Nothing waiting on the CEO.")) : null;
+  const payActions = r => E("div", {
+    className: "flex flex-wrap gap-1.5 items-center"
+  }, E("select", {
+    className: "text-[12px] border border-neutral-200 rounded-lg px-2 py-1",
+    value: payMethod[r.id] || "Bank transfer",
+    onChange: ev => setPayMethod(p => ({
+      ...p, [r.id]: ev.target.value
+    }))
+  }, E("option", null, "Bank transfer"), E("option", null, "Cash"), E("option", null, "Card")), E("button", {
+    onClick: () => markPaidAct(r.id),
+    className: "text-[11px] px-2 py-1 rounded-lg bg-neutral-900 text-white"
+  }, "Mark paid"));
+  const payCard = canMarkPaid ? E(Card, {
+    className: "overflow-hidden lg:col-span-2"
+  }, cardHead("Ready for payment", payQueue.length), payQueue.length ? payQueue.map(r => row(r, payActions(r))) : emptyRow("Nothing approved and waiting on payment.")) : null;
+  const paidCard = paidList.length > 0 ? E(Card, {
+    className: "overflow-hidden lg:col-span-2"
+  }, cardHead("Paid", null), paidList.map(r => row(r, null))) : null;
+  const queueBlock = sub === "queue" && E("div", {
+    className: "grid lg:grid-cols-2 gap-5"
+  }, myCard, financeCard, deptHeadCard, fdCard, ceoCard, payCard, paidCard);
+  return E("div", {
+    className: "max-w-6xl space-y-4"
+  }, tabsRow, policyBlock, queueBlock);
+}
 function HRReports({
   db
 }) {
@@ -5165,7 +6046,7 @@ const ms = x => {
 };
 async function loadFromSB() {
   try {
-    const [users, depsR, catsR, vend, plansR, catB, ccB, reqs, aud, setR, emps, cands, asts, tasks, hrdeps, finSnaps, actItems, lvTypes, lvBal, lvReqs, polDocs, polQs, eqReqs] = await Promise.all([sbGet("app_users"), sbGet("departments"), sbGet("categories"), sbGet("vendors"), sbGet("plans"), sbGet("category_budgets"), sbGet("cost_centre_budgets"), sbGet("requests"), sbGet("audit", "&order=ts.asc"), sbGet("app_settings"), sbGet("employees"), sbGet("candidates"), sbGet("assets"), sbGet("admin_tasks"), sbGet("hr_departments"), sbGet("fin_snapshots", "&order=period_end.asc"), sbGet("action_items", "&order=sort_order.asc"), sbGet("leave_types", "&order=sort_order.asc"), sbGet("leave_balances"), sbGet("leave_requests", "&order=created_at.asc"), sbGet("policy_documents", "&order=created_at.asc"), sbGet("policy_questions", "&order=created_at.asc"), sbGet("equipment_requests", "&order=created_at.asc")]);
+    const [users, depsR, catsR, vend, plansR, catB, ccB, reqs, aud, setR, emps, cands, asts, tasks, hrdeps, finSnaps, actItems, lvTypes, lvBal, lvReqs, polDocs, polQs, eqReqs, costReqs, costQs] = await Promise.all([sbGet("app_users"), sbGet("departments"), sbGet("categories"), sbGet("vendors"), sbGet("plans"), sbGet("category_budgets"), sbGet("cost_centre_budgets"), sbGet("requests"), sbGet("audit", "&order=ts.asc"), sbGet("app_settings"), sbGet("employees"), sbGet("candidates"), sbGet("assets"), sbGet("admin_tasks"), sbGet("hr_departments"), sbGet("fin_snapshots", "&order=period_end.asc"), sbGet("action_items", "&order=sort_order.asc"), sbGet("leave_types", "&order=sort_order.asc"), sbGet("leave_balances"), sbGet("leave_requests", "&order=created_at.asc"), sbGet("policy_documents", "&order=created_at.asc"), sbGet("policy_questions", "&order=created_at.asc"), sbGet("equipment_requests", "&order=created_at.asc"), sbGet("cost_requests", "&order=created_at.asc"), sbGet("cost_questions", "&order=created_at.asc")]);
     const plan0 = plansR[0] || {
       id: "plan_cur",
       month: iso(today()).slice(0, 7)
@@ -5298,6 +6179,45 @@ async function loadFromSB() {
       createdAt: ms(r.created_at),
       updatedAt: ms(r.updated_at)
     }));
+    const costRequests = costReqs.map(r => ({
+      id: r.id,
+      employeeId: r.employee_id,
+      dept: r.dept || "",
+      title: r.title || "",
+      category: r.category || "",
+      urgency: r.urgency || "Normal",
+      amount: Number(r.amount || 0),
+      currency: r.currency || "USD",
+      description: r.description || "",
+      documents: r.documents || [],
+      status: r.status,
+      requiresCeo: !!r.requires_ceo,
+      outOfBudget: !!r.out_of_budget,
+      financeReviewerId: r.finance_reviewer_id || null,
+      financeReviewedAt: r.finance_reviewed_at ? ms(r.finance_reviewed_at) : null,
+      financeComment: r.finance_comment || "",
+      deptheadId: r.depthead_id || null,
+      deptheadDecisionAt: r.depthead_decision_at ? ms(r.depthead_decision_at) : null,
+      deptheadComment: r.depthead_comment || "",
+      fdId: r.fd_id || null,
+      fdDecisionAt: r.fd_decision_at ? ms(r.fd_decision_at) : null,
+      fdComment: r.fd_comment || "",
+      ceoId: r.ceo_id || null,
+      ceoDecisionAt: r.ceo_decision_at ? ms(r.ceo_decision_at) : null,
+      ceoComment: r.ceo_comment || "",
+      cfoEscalatedAt: r.cfo_escalated_at ? ms(r.cfo_escalated_at) : null,
+      ceoEscalatedAt: r.ceo_escalated_at ? ms(r.ceo_escalated_at) : null,
+      paidAt: r.paid_at ? ms(r.paid_at) : null,
+      paymentMethod: r.payment_method || "",
+      createdBy: r.created_by || "",
+      createdAt: ms(r.created_at),
+      updatedAt: ms(r.updated_at)
+    }));
+    const costQuestions = costQs.map(q => ({
+      id: q.id, employeeId: q.employee_id, question: q.question, aiAnswer: q.ai_answer || "", aiConfidence: q.ai_confidence == null ? null : Number(q.ai_confidence), aiTopic: q.ai_topic || "",
+      status: q.status, financeAnswer: q.finance_answer || "", financeAnsweredBy: q.finance_answered_by || "", financeAnsweredAt: q.finance_answered_at ? ms(q.finance_answered_at) : null,
+      cfoEscalatedAt: q.cfo_escalated_at ? ms(q.cfo_escalated_at) : null, ceoEscalatedAt: q.ceo_escalated_at ? ms(q.ceo_escalated_at) : null, createdAt: ms(q.created_at)
+    }));
     const st = setR[0] || {};
     return {
       users: users.map(u => ({
@@ -5343,6 +6263,8 @@ async function loadFromSB() {
         status: q.status, hrAnswer: q.hr_answer || "", hrAnsweredBy: q.hr_answered_by || "", hrAnsweredAt: q.hr_answered_at ? ms(q.hr_answered_at) : null,
         reminderSentAt: q.reminder_sent_at ? ms(q.reminder_sent_at) : null, escalatedAt: q.escalated_at ? ms(q.escalated_at) : null, createdAt: ms(q.created_at)
       })),
+      costRequests,
+      costQuestions,
       settings: {
         _id: st.id || "default",
         webhookUrl: st.webhook_url || "",
@@ -5350,7 +6272,7 @@ async function loadFromSB() {
         approvalThreshold: Number(st.approval_threshold) || DEFAULT_THRESHOLD,
         portalUrl: st.portal_url || ""
       },
-      _v: 8
+      _v: 9
     };
   } catch (e) {
     console.warn("Supabase load failed, using local seed:", e.message);
@@ -5544,6 +6466,55 @@ const policyQSB = q => ({
   escalated_at: q.escalatedAt ? new Date(q.escalatedAt).toISOString() : null,
   created_at: new Date(q.createdAt || Date.now()).toISOString()
 });
+const costReqSB = r => ({
+  id: r.id,
+  employee_id: r.employeeId,
+  dept: r.dept || null,
+  title: r.title || null,
+  category: r.category || null,
+  urgency: r.urgency || "Normal",
+  amount: r.amount,
+  currency: r.currency || "USD",
+  description: r.description || null,
+  documents: r.documents || [],
+  status: r.status,
+  requires_ceo: !!r.requiresCeo,
+  out_of_budget: !!r.outOfBudget,
+  finance_reviewer_id: r.financeReviewerId || null,
+  finance_reviewed_at: r.financeReviewedAt ? new Date(r.financeReviewedAt).toISOString() : null,
+  finance_comment: r.financeComment || null,
+  depthead_id: r.deptheadId || null,
+  depthead_decision_at: r.deptheadDecisionAt ? new Date(r.deptheadDecisionAt).toISOString() : null,
+  depthead_comment: r.deptheadComment || null,
+  fd_id: r.fdId || null,
+  fd_decision_at: r.fdDecisionAt ? new Date(r.fdDecisionAt).toISOString() : null,
+  fd_comment: r.fdComment || null,
+  ceo_id: r.ceoId || null,
+  ceo_decision_at: r.ceoDecisionAt ? new Date(r.ceoDecisionAt).toISOString() : null,
+  ceo_comment: r.ceoComment || null,
+  cfo_escalated_at: r.cfoEscalatedAt ? new Date(r.cfoEscalatedAt).toISOString() : null,
+  ceo_escalated_at: r.ceoEscalatedAt ? new Date(r.ceoEscalatedAt).toISOString() : null,
+  paid_at: r.paidAt ? new Date(r.paidAt).toISOString() : null,
+  payment_method: r.paymentMethod || null,
+  created_by: r.createdBy || null,
+  created_at: new Date(r.createdAt || Date.now()).toISOString(),
+  updated_at: new Date(r.updatedAt || Date.now()).toISOString()
+});
+const costQSB = q => ({
+  id: q.id,
+  employee_id: q.employeeId,
+  question: q.question,
+  ai_answer: q.aiAnswer || null,
+  ai_confidence: q.aiConfidence == null ? null : q.aiConfidence,
+  ai_topic: q.aiTopic || null,
+  status: q.status,
+  finance_answer: q.financeAnswer || null,
+  finance_answered_by: q.financeAnsweredBy || null,
+  finance_answered_at: q.financeAnsweredAt ? new Date(q.financeAnsweredAt).toISOString() : null,
+  cfo_escalated_at: q.cfoEscalatedAt ? new Date(q.cfoEscalatedAt).toISOString() : null,
+  ceo_escalated_at: q.ceoEscalatedAt ? new Date(q.ceoEscalatedAt).toISOString() : null,
+  created_at: new Date(q.createdAt || Date.now()).toISOString()
+});
 async function persistDb(prev, cur) {
   const chg = k => JSON.stringify(prev[k]) !== JSON.stringify(cur[k]);
   const jobs = [];
@@ -5567,6 +6538,8 @@ async function persistDb(prev, cur) {
   if (chg("leaveBalances")) jobs.push(sbUpsert("leave_balances", (cur.leaveBalances || []).map(leaveBalSB)));
   if (chg("policyQuestions")) jobs.push(sbUpsert("policy_questions", (cur.policyQuestions || []).map(policyQSB)));
   if (chg("equipmentRequests")) jobs.push(sbUpsert("equipment_requests", (cur.equipmentRequests || []).map(eqReqSB)));
+  if (chg("costRequests")) jobs.push(sbUpsert("cost_requests", (cur.costRequests || []).map(costReqSB)));
+  if (chg("costQuestions")) jobs.push(sbUpsert("cost_questions", (cur.costQuestions || []).map(costQSB)));
   if (chg("settings")) jobs.push(sbUpsert("app_settings", [{
     id: cur.settings._id || "default",
     approval_threshold: cur.settings.approvalThreshold,
@@ -5581,14 +6554,14 @@ async function persistDb(prev, cur) {
 }
 
 /* ================= App ================= */
-const KEY = "dl-ops-portal-v8";
+const KEY = "dl-ops-portal-v9";
 function App() {
   const [db, setDb] = useState(() => {
     const raw = store.get(KEY);
     if (raw) {
       try {
         const d = JSON.parse(raw);
-        if (d._v === 8) return d;
+        if (d._v === 9) return d;
       } catch (e) {}
     }
     const s = seed();
@@ -5642,6 +6615,12 @@ function App() {
   useEffect(() => {
     const id = setInterval(() => {
       setDb(prev => checkPolicyEscalations(prev));
+    }, 60000);
+    return () => clearInterval(id);
+  }, []);
+  useEffect(() => {
+    const id = setInterval(() => {
+      setDb(prev => checkCostQuestionEscalations(checkCostRequestEscalations(prev)));
     }, 60000);
     return () => clearInterval(id);
   }, []);
@@ -6001,6 +6980,22 @@ function App() {
     roles: allR,
     badge: (db.equipmentRequests || []).filter(r => (can(role, "review_equipment") && r.status === "Submitted") || (can(role, "approve_equipment_cfo") && role === "finance_director" && r.status === "Pending CFO Approval") || (can(role, "approve_equipment_ceo") && role === "ceo" && r.status === "Pending CEO Approval")).length
   }, {
+    id: "cost",
+    label: "Cost & Payment approval",
+    icon: "wallet",
+    group: "Payments",
+    roles: allR,
+    badge: (db.costRequests || []).filter(r => {
+      const canReviewDocs = myEmpId === FINANCE_EXECUTIVE_EMPLOYEE_ID || role === "admin";
+      const isFD = (meId && meId === financeDirectorUserId(db)) || role === "admin";
+      const isCeoQ = role === "ceo" || role === "admin";
+      if (canReviewDocs && r.status === "Submitted") return true;
+      if (r.status === "Dept Head Review" && (role === "admin" || deptHeadUserId(db, r.employeeId) === meId)) return true;
+      if (isFD && r.status === "Finance Director Review") return true;
+      if (isCeoQ && r.status === "CEO Review") return true;
+      return false;
+    }).length
+  }, {
     id: "reports",
     label: "Reports",
     icon: "chart",
@@ -6208,6 +7203,14 @@ function App() {
     role: role,
     myEmpId: myEmpId
   }), tab === "equipment" && /*#__PURE__*/React.createElement(EquipmentV, {
+    db: db,
+    update: update,
+    role: role,
+    me: me,
+    meId: meId,
+    myEmpId: myEmpId,
+    nameOf: enameOf
+  }), tab === "cost" && /*#__PURE__*/React.createElement(CostApprovalV, {
     db: db,
     update: update,
     role: role,
