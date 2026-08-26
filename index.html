@@ -1951,6 +1951,7 @@ function seed() {
     leaveBalances: [],
     leaveRequests: [],
     policyDocs: [],
+    policyQuestions: [],
     settings: {
       webhookUrl: "https://hook.us2.make.com/bsh3fl3qco185yg6nqm1k27dd14gcj19",
       emailEnabled: true,
@@ -2672,6 +2673,48 @@ function appUserIdForEmployee(db, empId) {
 function hrUserIds(db) {
   return (db.users || []).filter(u => u.role === "hr_manager").map(u => u.id);
 }
+// "The leader of HR" for escalations: the manager of whoever holds the hr_manager role.
+function hrLeaderUserId(db) {
+  const hrIds = hrUserIds(db);
+  for (let i = 0; i < hrIds.length; i++) {
+    const empId = employeeIdForAppUser(db, hrIds[i]);
+    const emp = empId && (db.employees || []).find(e => e.id === empId);
+    const leaderUserId = emp && emp.managerId && appUserIdForEmployee(db, emp.managerId);
+    if (leaderUserId) return leaderUserId;
+  }
+  return null;
+}
+// Reverse of appUserIdForEmployee: given an app_users id, find the linked employee record.
+// Deliberately does NOT match on email — most employee records share the same placeholder
+// "sample@decisionlab.co" address, so email matching would silently resolve every requester
+// to the same employee. Uses the "u_"+employeeId id convention instead, with a name-match fallback.
+function employeeIdForAppUser(db, userId) {
+  if (!userId) return null;
+  if (userId === "u_thuy") return "e2";
+  if (userId.indexOf("u_") === 0) {
+    const cand = userId.slice(2);
+    if ((db.employees || []).some(e => e.id === cand)) return cand;
+  }
+  const u = (db.users || []).find(x => x.id === userId);
+  const byName = u && (db.employees || []).find(e => e.name === u.name);
+  return byName ? byName.id : null;
+}
+const LEAVE_ALL_ACCESS_ROLES = ["admin", "hr_manager", "ceo", "finance_director"];
+// Role matrix for the Leave module: people without an elevated role only ever see their own
+// record; HR (People & Workplace), CEO, CFO (finance_director) and Admin see everyone; a
+// Department Head / Team Leader sees themselves plus their direct reports.
+function visibleEmployeeIds(db, role, myEmpId) {
+  const all = db.employees || [];
+  if (LEAVE_ALL_ACCESS_ROLES.includes(role)) return new Set(all.map(e => e.id));
+  const set = new Set();
+  if (myEmpId) set.add(myEmpId);
+  if (role === "team_leader" && myEmpId) {
+    all.forEach(e => {
+      if (e.managerId === myEmpId) set.add(e.id);
+    });
+  }
+  return set;
+}
 // Decides whether a leave request clears the policy outright (auto-approved, HR + Leader
 // just notified) or needs the HR-check -> Department Head approval flow. Mirrors the
 // Annual Leave Policy v3.0: advance-notice tiers (5d for 0.5-3d, 10d for >3d — sick/funeral
@@ -2757,6 +2800,174 @@ function createLeaveRequest(next, {
     id, auto, check
   };
 }
+/* ---- Policy assistant: local keyword-matched Q&A over the Annual Leave Policy, with
+   escalation to HR (People & Workplace) when the match is too weak, and a 1h-reminder /
+   4h-escalation-to-HR's-leader clock. This is a retrieval assistant over a curated
+   knowledge base of the policy's actual rules — not a general-purpose AI model — so it can
+   only answer what's in POLICY_FAQ below; anything else is honestly escalated to a human. */
+const POLICY_FAQ = [{
+  topic: "entitlement", keywords: ["how many days", "entitle", "entitlement", "annual leave days", "how much leave", "days do i get", "days off", "base days"],
+  a: "It depends on your tier (after probation): Execution (Executive, Consultant) = 14d/yr · Project Leader (Senior Consultant, Manager, Senior Manager, Associate Director) = 15d/yr · Director (Director, CEO) = 17d/yr. Interns accrue 1 day per month interned instead of a flat annual number. Everyone also gets a tenure bonus on top of their tier base — see the tenure question."
+}, {
+  topic: "tenure", keywords: ["tenure", "bonus", "extra day", "2 years", "4 years", "seniority", "long service"],
+  a: "+1 day after 2 years of service, +2 days after 4 years of service — on top of your tier's base entitlement. Applies at every tier."
+}, {
+  topic: "intern", keywords: ["intern", "internship"],
+  a: "Interns accrue 1 day of leave per month interned, rather than a flat annual entitlement."
+}, {
+  topic: "recharge", keywords: ["recharge"],
+  a: "A separate pool of 2 recharge days per year, on top of Annual Leave — for short personal reset days."
+}, {
+  topic: "post_project", keywords: ["post-project", "post project", "recovery day"],
+  a: "1 day per year for recovery after an intense project. It's always at your manager's discretion and is never auto-approved, even with advance notice and balance available."
+}, {
+  topic: "carryover", keywords: ["carry", "carry-over", "carryover", "forfeit", "expire", "use it or lose", "roll over", "cash out", "cash-out"],
+  a: "Unused Annual Leave carries into the next year, but must be used by March 31 or it's forfeited — there's no cash-out for unused days."
+}, {
+  topic: "notice", keywords: ["notice", "how many days notice", "advance notice", "how far in advance", "tet", "tết", "how soon"],
+  a: "5 days' notice for requests of 0.5–3 days, 10 days' notice for requests over 3 days, and 1 month's notice for leave over Tết. Waived for sick leave, funerals and emergencies."
+}, {
+  topic: "flow", keywords: ["approve", "approval", "who approves", "process", "flow", "workflow", "how does it work", "auto-approve", "auto approve"],
+  a: "If your request is within policy (enough notice, enough balance) it's auto-approved on submit — HR and your Leader just get an FYI, no action needed. If it's outside policy: you submit → HR/Finance checks policy & balance → your Department Head approves or rejects → you're notified. Every step is logged in the Audit log."
+}, {
+  topic: "sick", keywords: ["sick", "illness", "medical emergency"],
+  a: "No advance notice is required for sick leave — it's exempt, along with funerals and other emergencies."
+}, {
+  topic: "special_leave", keywords: ["marriage", "wedding", "maternity", "paternity", "funeral", "bereavement"],
+  a: "These are separate leave types outside the Annual Leave balance. Marriage, maternity and paternity leave still need advance notice where practical; funeral leave is exempt from the notice requirement. All are logged and reviewed the same way as other leave requests."
+}, {
+  topic: "unpaid_other", keywords: ["unpaid", "other leave", "not covered", "special case"],
+  a: "Unpaid Leave is its own type. “Other” leave covers anything outside the standard categories and always needs CEO approval — it's never auto-approved."
+}, {
+  topic: "how_to_submit", keywords: ["how do i submit", "how to request", "how to apply", "submit a request", "apply for leave", "where do i"],
+  a: "Go to Leave & Time Off → New leave request, pick your leave type and dates, and submit. If you're within policy it's approved immediately; otherwise it moves to HR review."
+}];
+function scorePolicyMatch(question) {
+  const q = String(question || "").toLowerCase();
+  let best = null,
+    bestScore = 0;
+  POLICY_FAQ.forEach(entry => {
+    let score = 0;
+    entry.keywords.forEach(k => {
+      if (q.indexOf(k) !== -1) score += k.split(" ").length;
+    });
+    if (score > bestScore) {
+      bestScore = score;
+      best = entry;
+    }
+  });
+  const confidence = best ? Math.min(1, 0.35 + bestScore * 0.2) : 0;
+  return {
+    entry: best, confidence
+  };
+}
+const POLICY_AI_CONFIDENCE_THRESHOLD = 0.5;
+function askPolicyQuestion(next, {
+  employeeId, question, askedBy, askedRole
+}) {
+  next.policyQuestions = next.policyQuestions || [];
+  next.notifications = next.notifications || [];
+  const text = String(question || "").trim();
+  const {
+    entry, confidence
+  } = scorePolicyMatch(text);
+  const id = uid("pq");
+  const now = Date.now();
+  const emp = next.employees.find(e => e.id === employeeId);
+  const escalate = !entry || confidence < POLICY_AI_CONFIDENCE_THRESHOLD;
+  next.policyQuestions.unshift({
+    id, employeeId, question: text,
+    aiAnswer: entry ? entry.a : "",
+    aiConfidence: confidence,
+    aiTopic: entry ? entry.topic : "",
+    status: escalate ? "escalated" : "ai_answered",
+    hrAnswer: "", hrAnsweredBy: "", hrAnsweredAt: null,
+    reminderSentAt: null, escalatedAt: null,
+    createdAt: now
+  });
+  next.audit.unshift({
+    id: uid("au"), ts: now, requestId: id, actorId: askedBy, role: askedRole,
+    action: escalate ? "policy_question_escalated" : "policy_question_answered",
+    detail: (emp ? emp.name + " asked" : "Question") + ": “" + text + "”" + (escalate ? " — outside the assistant's knowledge, escalated to HR." : " — answered from policy (" + Math.round(confidence * 100) + "% match).")
+  });
+  if (escalate) next.notifications.unshift({
+    id: uid("n"), ts: now, read: false, toRole: ["hr_manager", "admin"],
+    message: (emp ? emp.name : "Someone") + " asked a policy question the assistant couldn't answer: “" + text + "”",
+    type: "policy_question"
+  });
+  return id;
+}
+function answerPolicyQuestion(next, {
+  questionId, answer, actorId, actorRole
+}) {
+  next.policyQuestions = next.policyQuestions || [];
+  const i = next.policyQuestions.findIndex(q => q.id === questionId);
+  if (i < 0) return;
+  const now = Date.now();
+  const q = next.policyQuestions[i];
+  next.policyQuestions[i] = {
+    ...q, status: "hr_answered", hrAnswer: answer, hrAnsweredBy: actorId, hrAnsweredAt: now
+  };
+  next.audit.unshift({
+    id: uid("au"), ts: now, requestId: questionId, actorId, role: actorRole,
+    action: "policy_question_hr_answered", detail: "HR answered: “" + answer + "”"
+  });
+}
+// Client-computed reminder/escalation clock — this app has no server-side cron, so these
+// fire whenever anyone has the app open (checked every minute) rather than at the exact
+// wall-clock minute. Idempotent via reminderSentAt/escalatedAt so it only fires once per question.
+function checkPolicyEscalations(prevDb) {
+  const qs = prevDb.policyQuestions || [];
+  const now = Date.now();
+  let changed = false;
+  const updated = qs.map(q => {
+    if (q.status !== "escalated") return q;
+    if (!q.escalatedAt && now - q.createdAt >= 4 * 3600 * 1000) {
+      changed = true;
+      return {
+        ...q, escalatedAt: now
+      };
+    }
+    if (!q.reminderSentAt && now - q.createdAt >= 3600 * 1000) {
+      changed = true;
+      return {
+        ...q, reminderSentAt: now
+      };
+    }
+    return q;
+  });
+  if (!changed) return prevDb;
+  const next = clone(prevDb);
+  next.policyQuestions = updated;
+  next.notifications = next.notifications || [];
+  next.audit = next.audit || [];
+  updated.forEach((q, i) => {
+    const orig = qs[i];
+    const emp = next.employees.find(e => e.id === q.employeeId);
+    if (q.reminderSentAt && !orig.reminderSentAt) {
+      next.notifications.unshift({
+        id: uid("n"), ts: Date.now(), read: false, toRole: ["hr_manager", "admin"], type: "policy_reminder",
+        message: "Reminder: " + (emp ? emp.name : "a") + "’s policy question has been waiting on HR for over 1 hour: “" + q.question + "”"
+      });
+      next.audit.unshift({
+        id: uid("au"), ts: Date.now(), requestId: q.id, actorId: "system", role: "system",
+        action: "policy_question_reminder", detail: "1h reminder sent to HR — no answer yet."
+      });
+    }
+    if (q.escalatedAt && !orig.escalatedAt) {
+      const leaderId = hrLeaderUserId(next);
+      if (leaderId) next.notifications.unshift({
+        id: uid("n"), ts: Date.now(), read: false, toUser: leaderId, type: "policy_escalation",
+        message: "Escalated to you: HR hasn't answered " + (emp ? emp.name : "a") + "’s policy question after 4 hours: “" + q.question + "”"
+      });
+      next.audit.unshift({
+        id: uid("au"), ts: Date.now(), requestId: q.id, actorId: "system", role: "system",
+        action: "policy_question_hr_escalated", detail: "4h escalation sent to HR's leader — still no answer."
+      });
+    }
+  });
+  return next;
+}
 function PolicyDocCard({
   db
 }) {
@@ -2794,6 +3005,163 @@ function PolicyDocCard({
     className: "px-4 py-2 text-[11px] text-neutral-400 border-t border-neutral-100"
   }, "This is the unedited original PDF — stored in Supabase Storage (contracts/policies/) and registered in the policy_documents table so it's versioned alongside every other HR record. The summary above is a quick-reference only; this document is the source of truth."));
 }
+function PolicySummaryCard() {
+  const E = React.createElement;
+  const Section = ({
+    title, children
+  }) => E("div", {
+    className: "space-y-1"
+  }, E("div", {
+    className: "text-[11px] uppercase tracking-wide text-neutral-400 font-semibold"
+  }, title), E("div", {
+    className: "text-neutral-700 leading-snug"
+  }, children));
+  const List = items => E("ul", {
+    className: "space-y-0.5 list-disc pl-4"
+  }, items.map((it, i) => E("li", {
+    key: i
+  }, it)));
+  return E(Card, {
+    className: "p-4 space-y-4"
+  }, E("div", {
+    className: "flex items-center justify-between flex-wrap gap-1"
+  }, E("div", {
+    className: "font-display text-[13px] uppercase tracking-wide", style: {
+      fontWeight: 700
+    }
+  }, "Annual Leave Policy v3.0"), E("span", {
+    className: "text-[11px] text-neutral-400"
+  }, "Effective Sep 1, 2026")), E("div", {
+    className: "grid grid-cols-1 sm:grid-cols-2 gap-4 text-[12.5px]"
+  }, E(Section, {
+    title: "Entitlement by tier (after probation)"
+  }, List([E(React.Fragment, {
+    key: "e"
+  }, E("b", null, "Execution"), " — Executive, Consultant · 14d/yr"), E(React.Fragment, {
+    key: "p"
+  }, E("b", null, "Project Leader"), " — Senior Consultant, Manager, Senior Manager, Assoc. Director · 15d/yr"), E(React.Fragment, {
+    key: "d"
+  }, E("b", null, "Director"), " — Director, CEO · 17d/yr"), E(React.Fragment, {
+    key: "i"
+  }, E("b", null, "Intern"), " — 1 day / month interned")])), E(Section, {
+    title: "Tenure bonus (all tiers)"
+  }, List(["+1 day after 2 years' service", "+2 days after 4 years' service"])), E(Section, {
+    title: "Separate leave pools"
+  }, List(["2 recharge days / year", "1 post-project-recovery day — manager discretion, never auto-approved"])), E(Section, {
+    title: "Carry-over & forfeiture"
+  }, "Unused Annual Leave carries into next year but must be used by Mar 31 or is forfeited — no cash-out."), E(Section, {
+    title: "Advance notice"
+  }, List(["5 days — requests of 0.5–3 days", "10 days — requests over 3 days", "1 month — leave over Tết", "Waived for sick / funeral / emergencies"])), E(Section, {
+    title: "Approval flow"
+  }, "In-policy requests auto-approve on submit — HR and your Leader get an FYI only. Out-of-policy: you submit → HR/Finance checks policy & balance → Department Head approves/rejects → you're notified. Every step is logged in Audit log.")));
+}
+function PolicyQABox({
+  db, me, role, update
+}) {
+  const E = React.createElement;
+  const [text, setText] = useState("");
+  const [replyDrafts, setReplyDrafts] = useState({});
+  const myEmpId = employeeIdForAppUser(db, me && me.id);
+  const isAllAccess = LEAVE_ALL_ACCESS_ROLES.includes(role);
+  const canAnswer = role === "hr_manager" || role === "admin" || (me && me.id === hrLeaderUserId(db));
+  const questions = (db.policyQuestions || []).filter(q => isAllAccess || q.employeeId === myEmpId).slice().sort((a, b) => b.createdAt - a.createdAt);
+  const Tag = ({
+    tone, children
+  }) => E("span", {
+    className: "inline-flex items-center text-[11px] font-medium px-2 py-0.5 rounded-full ring-1 ring-inset " + tone
+  }, children);
+  const statusTag = q => {
+    if (q.status === "ai_answered") return E(Tag, {
+      tone: "bg-emerald-50 text-emerald-700 ring-emerald-200"
+    }, "Answered by policy assistant");
+    if (q.status === "hr_answered") return E(Tag, {
+      tone: "bg-emerald-50 text-emerald-700 ring-emerald-200"
+    }, "Answered by HR");
+    const elapsed = Date.now() - q.createdAt;
+    if (q.escalatedAt || elapsed >= 4 * 3600 * 1000) return E(Tag, {
+      tone: "bg-rose-50 text-rose-700 ring-rose-200"
+    }, "Escalated to HR's leader (4h+)");
+    if (q.reminderSentAt || elapsed >= 3600 * 1000) return E(Tag, {
+      tone: "bg-amber-50 text-amber-800 ring-amber-200"
+    }, "Reminder sent to HR (1h+)");
+    return E(Tag, {
+      tone: "bg-blue-50 text-blue-700 ring-blue-200"
+    }, "Escalated to HR — awaiting reply");
+  };
+  const ask = () => {
+    if (!text.trim() || !myEmpId) return;
+    update(next => askPolicyQuestion(next, {
+      employeeId: myEmpId, question: text, askedBy: me.id, askedRole: role
+    }));
+    setText("");
+  };
+  const reply = qid => {
+    const answer = (replyDrafts[qid] || "").trim();
+    if (!answer) return;
+    update(next => answerPolicyQuestion(next, {
+      questionId: qid, answer, actorId: me.id, actorRole: role
+    }));
+    setReplyDrafts(d => ({
+      ...d, [qid]: ""
+    }));
+  };
+  return E(Card, {
+    className: "overflow-hidden"
+  }, E("div", {
+    className: "px-4 py-3 border-b border-neutral-100"
+  }, E("div", {
+    className: "font-display text-sm uppercase tracking-wide", style: {
+      fontWeight: 700
+    }
+  }, "Ask the policy assistant"), E("div", {
+    className: "text-[11px] text-neutral-400 mt-0.5"
+  }, "Answers come from the Annual Leave Policy v3.0. When it can't answer confidently, HR is notified and can reply here — with a 1h reminder and a 4h escalation to HR's leader if nobody's answered yet.")), E("div", {
+    className: "p-4 space-y-3"
+  }, myEmpId ? E("div", {
+    className: "flex gap-2"
+  }, E("input", {
+    type: "text", value: text, onChange: ev => setText(ev.target.value),
+    onKeyDown: ev => ev.key === "Enter" && ask(),
+    placeholder: "e.g. How many annual leave days do I get?", className: INP + " flex-1"
+  }), E("button", {
+    onClick: ask, className: "text-sm bg-neutral-900 text-white rounded-full px-4 py-1.5 shrink-0"
+  }, "Ask")) : E("div", {
+    className: "text-[12px] text-neutral-400"
+  }, "No linked employee record for this account — can't ask as this user."), questions.length === 0 && E("div", {
+    className: "text-sm text-neutral-400 text-center py-4"
+  }, "No questions yet."), E("div", {
+    className: "space-y-3"
+  }, questions.slice(0, 20).map(q => {
+    const emp = db.employees.find(e => e.id === q.employeeId);
+    return E("div", {
+      key: q.id, className: "bg-neutral-50 rounded-xl px-3 py-2.5 space-y-1.5"
+    }, E("div", {
+      className: "flex items-center justify-between gap-2 flex-wrap"
+    }, E("div", {
+      className: "text-sm font-medium"
+    }, isAllAccess ? (emp ? emp.name : "—") + " asked" : "You asked"), statusTag(q)), E("div", {
+      className: "text-[13px] text-neutral-700"
+    }, "“", q.question, "”"), q.aiAnswer && E("div", {
+      className: "text-[12.5px] text-neutral-600 flex items-start gap-1.5"
+    }, E(Icon, {
+      n: "check", size: 12, className: "mt-0.5 shrink-0 text-emerald-600"
+    }), q.aiAnswer), q.hrAnswer && E("div", {
+      className: "text-[12.5px] text-neutral-600 flex items-start gap-1.5"
+    }, E(Icon, {
+      n: "check", size: 12, className: "mt-0.5 shrink-0 text-emerald-600"
+    }), E("b", null, "HR: "), q.hrAnswer), q.status === "escalated" && canAnswer && E("div", {
+      className: "flex gap-2 pt-1"
+    }, E("input", {
+      type: "text", value: replyDrafts[q.id] || "", onChange: ev => setReplyDrafts(d => ({
+        ...d, [q.id]: ev.target.value
+      })),
+      onKeyDown: ev => ev.key === "Enter" && reply(q.id),
+      placeholder: "Reply as HR...", className: INP + " flex-1 text-[12.5px] py-1"
+    }), E("button", {
+      onClick: () => reply(q.id), className: "text-xs bg-neutral-900 text-white rounded-full px-3 py-1.5 shrink-0"
+    }, "Reply")));
+  }))));
+}
 function LeaveTracker({
   db,
   role,
@@ -2816,10 +3184,14 @@ function LeaveTracker({
   const canReview = can(role, "review_leave"),
     canApprove = can(role, "approve_leave"),
     canRequest = can(role, "request_leave");
-  const needHR = leaveRequests.filter(r => r.status === "Submitted").sort((a, b) => a.createdAt - b.createdAt);
-  const needApproval = leaveRequests.filter(r => r.status === "Pending Approval").sort((a, b) => (a.hrDecisionAt || 0) - (b.hrDecisionAt || 0));
-  const decided = leaveRequests.filter(r => ["Approved", "Rejected", "HR Rejected", "Cancelled"].includes(r.status)).sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 12);
-  const active = db.employees.filter(e => e.status !== "Resigned");
+  const myEmpId = employeeIdForAppUser(db, me && me.id);
+  const visibleIds = visibleEmployeeIds(db, role, myEmpId);
+  const isAllAccess = LEAVE_ALL_ACCESS_ROLES.includes(role);
+  const scopedRequests = leaveRequests.filter(r => visibleIds.has(r.employeeId));
+  const needHR = scopedRequests.filter(r => r.status === "Submitted").sort((a, b) => a.createdAt - b.createdAt);
+  const needApproval = scopedRequests.filter(r => r.status === "Pending Approval").sort((a, b) => (a.hrDecisionAt || 0) - (b.hrDecisionAt || 0));
+  const decided = scopedRequests.filter(r => ["Approved", "Rejected", "HR Rejected", "Cancelled"].includes(r.status)).sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 12);
+  const active = db.employees.filter(e => e.status !== "Resigned" && visibleIds.has(e.id));
   const setBalance = (empId, patch) => update(next => {
     next.leaveBalances = next.leaveBalances || [];
     const i = next.leaveBalances.findIndex(b => b.employeeId === empId && b.year === YEAR);
@@ -2917,9 +3289,9 @@ function LeaveTracker({
     className: "text-sm bg-neutral-900 text-white rounded-full px-4 py-1.5 inline-flex items-center gap-1.5"
   }, E(Icon, {
     n: "plus", size: 14
-  }), " New leave request")), sub === "queue" && E(React.Fragment, null, !canReview && !canApprove && E("div", {
+  }), " New leave request")), sub === "queue" && E(React.Fragment, null, E("div", {
     className: "text-sm text-neutral-500 bg-white ring-1 ring-black/5 rounded-xl px-4 py-3"
-  }, "You're viewing as ", E("b", null, ROLES[role].label), " — HR/policy review and Department Head approval need HR Manager, Finance Director, CEO or Admin."), E(Card, {
+  }, "You're viewing as ", E("b", null, ROLES[role].label), ". ", isAllAccess ? "HR / CEO / CFO / Admin see every employee's leave." : role === "team_leader" ? "Team Leaders see their own leave plus their direct reports' — not the rest of the company." : "You can only see your own leave requests and balance.", !canReview && !canApprove && " HR/policy review and Department Head approval need HR Manager, Finance Director, CEO or Admin."), E(Card, {
     className: "overflow-hidden"
   }, E("div", {
     className: "px-4 py-3 border-b border-neutral-100 flex items-center justify-between"
@@ -2963,13 +3335,9 @@ function LeaveTracker({
     key: r.id, r, actions: null
   })), decided.length === 0 && E("div", {
     className: "px-4 py-6 text-center text-sm text-neutral-400"
-  }, "No decisions yet.")))), sub === "balances" && E(React.Fragment, null, E(Card, {
-    className: "p-4 text-[12.5px] text-neutral-600 leading-snug"
-  }, E("div", {
-    className: "font-display text-[13px] uppercase tracking-wide mb-1", style: {
-      fontWeight: 700
-    }
-  }, "Annual Leave Policy v3.0 — effective Sep 1, 2026"), "Execution 14d · Project Leader (EO/Senior Consultant/Assoc. Manager–Senior Manager/Assoc. Director) 15d · Director 17d — all after probation, +1d after 2y tenure, +2d after 4y (all levels). Interns accrue 1d/month interned. Separate pools: 2 recharge days/yr, 1 post-project-recovery day. Unused AL carries to next year but must be cleared by Mar 31 or is forfeited (no cash-out). Requests need 5 days notice (0.5–3d), 10 days (>3d), or 1 month over Tết — except sick/funeral/emergencies. Flow: requester submits → HR/Finance checks policy & balance → Department Head approves/rejects → requester notified; every step is logged below and in the Audit log tab."), E(PolicyDocCard, {
+  }, "No decisions yet.")))), sub === "balances" && E(React.Fragment, null, E(PolicySummaryCard), E(PolicyQABox, {
+    db, me, role, update
+  }), E(PolicyDocCard, {
     db
   }), E(Card, {
     className: "overflow-hidden"
@@ -3034,11 +3402,14 @@ function LeaveModal({
 }) {
   const E = React.createElement;
   const leaveTypes = (db.leaveTypes && db.leaveTypes.length ? db.leaveTypes : LEAVE_TYPES_SEED).slice().sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
-  const myEmp = me && me.email ? db.employees.find(e => e.email && e.email === me.email) : null;
+  const myEmpId = employeeIdForAppUser(db, me && me.id);
+  const myEmp = myEmpId ? db.employees.find(e => e.id === myEmpId) : null;
+  const visibleIds = visibleEmployeeIds(db, role, myEmpId);
+  const pickableEmployees = db.employees.filter(e => e.status !== "Resigned" && visibleIds.has(e.id));
   const req = modal.reqId ? (db.leaveRequests || []).find(r => r.id === modal.reqId) : null;
   const [form, setForm] = useState(() => {
     if (modal.type === "new_leave") return {
-      employeeId: (myEmp && myEmp.id) || db.employees[0]?.id || "",
+      employeeId: (myEmp && myEmp.id) || pickableEmployees[0]?.id || "",
       leaveType: "annual",
       startDate: iso(today()),
       endDate: iso(today()),
@@ -3121,10 +3492,13 @@ function LeaveModal({
   }, isNew ? E(React.Fragment, null, E(Field, {
     label: "Employee"
   }, E("select", {
-    className: INP, value: form.employeeId, onChange: ev => set("employeeId", ev.target.value)
-  }, db.employees.filter(e => e.status !== "Resigned").map(e => E("option", {
+    className: INP, value: form.employeeId, onChange: ev => set("employeeId", ev.target.value),
+    disabled: pickableEmployees.length <= 1
+  }, pickableEmployees.map(e => E("option", {
     key: e.id, value: e.id
-  }, e.name, " — ", e.dept)))), E(Field, {
+  }, e.name, " — ", e.dept))), !LEAVE_ALL_ACCESS_ROLES.includes(role) && role !== "team_leader" && E("div", {
+    className: "text-[11px] text-neutral-400 mt-1"
+  }, "You can only submit leave for yourself.")), E(Field, {
     label: "Leave type"
   }, E("select", {
     className: INP, value: form.leaveType, onChange: ev => set("leaveType", ev.target.value)
@@ -4365,7 +4739,7 @@ const ms = x => {
 };
 async function loadFromSB() {
   try {
-    const [users, depsR, catsR, vend, plansR, catB, ccB, reqs, aud, setR, emps, cands, asts, tasks, hrdeps, finSnaps, actItems, lvTypes, lvBal, lvReqs, polDocs] = await Promise.all([sbGet("app_users"), sbGet("departments"), sbGet("categories"), sbGet("vendors"), sbGet("plans"), sbGet("category_budgets"), sbGet("cost_centre_budgets"), sbGet("requests"), sbGet("audit", "&order=ts.asc"), sbGet("app_settings"), sbGet("employees"), sbGet("candidates"), sbGet("assets"), sbGet("admin_tasks"), sbGet("hr_departments"), sbGet("fin_snapshots", "&order=period_end.asc"), sbGet("action_items", "&order=sort_order.asc"), sbGet("leave_types", "&order=sort_order.asc"), sbGet("leave_balances"), sbGet("leave_requests", "&order=created_at.asc"), sbGet("policy_documents", "&order=created_at.asc")]);
+    const [users, depsR, catsR, vend, plansR, catB, ccB, reqs, aud, setR, emps, cands, asts, tasks, hrdeps, finSnaps, actItems, lvTypes, lvBal, lvReqs, polDocs, polQs] = await Promise.all([sbGet("app_users"), sbGet("departments"), sbGet("categories"), sbGet("vendors"), sbGet("plans"), sbGet("category_budgets"), sbGet("cost_centre_budgets"), sbGet("requests"), sbGet("audit", "&order=ts.asc"), sbGet("app_settings"), sbGet("employees"), sbGet("candidates"), sbGet("assets"), sbGet("admin_tasks"), sbGet("hr_departments"), sbGet("fin_snapshots", "&order=period_end.asc"), sbGet("action_items", "&order=sort_order.asc"), sbGet("leave_types", "&order=sort_order.asc"), sbGet("leave_balances"), sbGet("leave_requests", "&order=created_at.asc"), sbGet("policy_documents", "&order=created_at.asc"), sbGet("policy_questions", "&order=created_at.asc")]);
     const plan0 = plansR[0] || {
       id: "plan_cur",
       month: iso(today()).slice(0, 7)
@@ -4511,6 +4885,11 @@ async function loadFromSB() {
       })),
       policyDocs: polDocs.map(p => ({
         id: p.id, title: p.title, version: p.version, effectiveDate: p.effective_date, approvedBy: p.approved_by, category: p.category, summary: p.summary, sourceUrl: p.source_url || "", createdAt: ms(p.created_at)
+      })),
+      policyQuestions: polQs.map(q => ({
+        id: q.id, employeeId: q.employee_id, question: q.question, aiAnswer: q.ai_answer || "", aiConfidence: q.ai_confidence == null ? null : Number(q.ai_confidence), aiTopic: q.ai_topic || "",
+        status: q.status, hrAnswer: q.hr_answer || "", hrAnsweredBy: q.hr_answered_by || "", hrAnsweredAt: q.hr_answered_at ? ms(q.hr_answered_at) : null,
+        reminderSentAt: q.reminder_sent_at ? ms(q.reminder_sent_at) : null, escalatedAt: q.escalated_at ? ms(q.escalated_at) : null, createdAt: ms(q.created_at)
       })),
       settings: {
         _id: st.id || "default",
@@ -4673,6 +5052,21 @@ const leaveReqSB = r => ({
   created_at: new Date(r.createdAt || Date.now()).toISOString(),
   updated_at: new Date(r.updatedAt || Date.now()).toISOString()
 });
+const policyQSB = q => ({
+  id: q.id,
+  employee_id: q.employeeId,
+  question: q.question,
+  ai_answer: q.aiAnswer || null,
+  ai_confidence: q.aiConfidence == null ? null : q.aiConfidence,
+  ai_topic: q.aiTopic || null,
+  status: q.status,
+  hr_answer: q.hrAnswer || null,
+  hr_answered_by: q.hrAnsweredBy || null,
+  hr_answered_at: q.hrAnsweredAt ? new Date(q.hrAnsweredAt).toISOString() : null,
+  reminder_sent_at: q.reminderSentAt ? new Date(q.reminderSentAt).toISOString() : null,
+  escalated_at: q.escalatedAt ? new Date(q.escalatedAt).toISOString() : null,
+  created_at: new Date(q.createdAt || Date.now()).toISOString()
+});
 async function persistDb(prev, cur) {
   const chg = k => JSON.stringify(prev[k]) !== JSON.stringify(cur[k]);
   const jobs = [];
@@ -4694,6 +5088,7 @@ async function persistDb(prev, cur) {
   }
   if (chg("leaveRequests")) jobs.push(sbUpsert("leave_requests", (cur.leaveRequests || []).map(leaveReqSB)));
   if (chg("leaveBalances")) jobs.push(sbUpsert("leave_balances", (cur.leaveBalances || []).map(leaveBalSB)));
+  if (chg("policyQuestions")) jobs.push(sbUpsert("policy_questions", (cur.policyQuestions || []).map(policyQSB)));
   if (chg("settings")) jobs.push(sbUpsert("app_settings", [{
     id: cur.settings._id || "default",
     approval_threshold: cur.settings.approvalThreshold,
@@ -4766,6 +5161,12 @@ function App() {
     }, 4000);
     return () => clearInterval(id);
   }, [sbState]);
+  useEffect(() => {
+    const id = setInterval(() => {
+      setDb(prev => checkPolicyEscalations(prev));
+    }, 60000);
+    return () => clearInterval(id);
+  }, []);
   const [meId, setMeId] = useState("u_thuy");
   const [tab, setTab] = useState("master");
   const [bell, setBell] = useState(false);
