@@ -3490,41 +3490,121 @@ function EmployeeJourney({ db, update, employee, role, meId, myEmpId, nameOf }) 
   );
 }
 
-function EmployeeDataHubV({ db, update, role, meId, myEmpId, nameOf }) {
+function EmployeeDataHubV({ db, update, role, meId, myEmpId, nameOf, focusEmpId }) {
   const E = React.createElement;
   const visible = eddVisibleEmployees(db, role, myEmpId);
-  const [selectedId, setSelectedId] = useState(() => (visible.find(e => e.id === myEmpId) || visible[0] || {}).id);
+  const isMaster = eddCanViewAll(role);
+  const [selectedId, setSelectedId] = useState(() => {
+    if (focusEmpId && visible.some(e => e.id === focusEmpId)) return focusEmpId;
+    return (visible.find(e => e.id === myEmpId) || visible[0] || {}).id;
+  });
   const [q, setQ] = useState("");
+  const [openDepts, setOpenDepts] = useState(() => new Set());
   const selected = visible.find(e => e.id === selectedId) || visible[0];
-  const filtered = visible.filter(e => !q || e.name.toLowerCase().includes(q.toLowerCase()));
   const showRoster = visible.length > 1;
 
-  const rosterList = E(Card, { className: "overflow-hidden" },
+  const eddAvgFor = (empId) => {
+    const reviews = (db.eddReviews || []).filter(r => r.employeeId === empId);
+    const latest = reviews[reviews.length - 1];
+    return latest ? eddAverage(latest.scores) : null;
+  };
+
+  const qTrim = q.trim().toLowerCase();
+  const searching = isMaster && qTrim.length > 0;
+  const searchResults = searching ? visible.filter(e => (e.name + " " + (e.role || "") + " " + (e.dept || "")).toLowerCase().includes(qTrim)) : [];
+
+  const byDept = {};
+  visible.forEach(e => {
+    const d = e.dept || "Other";
+    (byDept[d] = byDept[d] || []).push(e);
+  });
+  const deptNames = Object.keys(byDept).sort();
+  const toggleDept = (d) => setOpenDepts(prev => {
+    const next = new Set(prev);
+    next.has(d) ? next.delete(d) : next.add(d);
+    return next;
+  });
+
+  const reviewedIds = new Set((db.eddReviews || []).map(r => r.employeeId));
+  const reviewedCount = visible.filter(e => reviewedIds.has(e.id)).length;
+  const scoredVals = visible.map(e => eddAvgFor(e.id)).filter(v => v != null);
+  const orgAvg = scoredVals.length ? scoredVals.reduce((a, b) => a + b, 0) / scoredVals.length : null;
+
+  const employeeRow = (e) => {
+    const avg = eddAvgFor(e.id);
+    return E("button", {
+      key: e.id, onClick: () => setSelectedId(e.id),
+      className: `w-full text-left flex items-center gap-2.5 px-3 py-2 hover:bg-neutral-50/60 ${selectedId === e.id ? "bg-neutral-50" : ""}`
+    },
+      E(Avatar, { name: e.name }),
+      E("div", { className: "flex-1 min-w-0" },
+        E("div", { className: "text-[13px] font-medium text-neutral-900 truncate" }, e.name),
+        E("div", { className: "text-[11px] text-neutral-400 truncate" }, e.level, " · ", e.role || e.dept)
+      ),
+      avg != null ? E("span", { className: `text-[12px] font-semibold shrink-0 ${eddScoreColor(avg)}` }, avg.toFixed(1)) : E("span", { className: "text-[10px] text-neutral-300 shrink-0" }, "no review")
+    );
+  };
+
+  const rosterBody = !isMaster
+    ? E("div", { className: "max-h-[65vh] overflow-auto divide-y divide-neutral-50" }, visible.map(employeeRow))
+    : searching
+      ? E("div", { className: "max-h-[65vh] overflow-auto" },
+          searchResults.length
+            ? E("div", { className: "divide-y divide-neutral-50" }, searchResults.map(employeeRow))
+            : E("div", { className: "text-sm text-neutral-400 text-center py-8" }, "No match."))
+      : E("div", { className: "max-h-[65vh] overflow-auto divide-y divide-neutral-50" }, deptNames.map(d => {
+          const emps = byDept[d];
+          const open = openDepts.has(d);
+          const deptScored = emps.map(e => eddAvgFor(e.id)).filter(v => v != null);
+          const deptAvg = deptScored.length ? deptScored.reduce((a, b) => a + b, 0) / deptScored.length : null;
+          return E("div", { key: d },
+            E("button", {
+              onClick: () => toggleDept(d),
+              className: "w-full flex items-center gap-2 px-3 py-2.5 hover:bg-neutral-50/60 text-left"
+            },
+              E("span", { className: "text-neutral-300 text-[10px] w-3 shrink-0" }, open ? "▾" : "▸"),
+              E("span", { className: "text-[12px] font-semibold text-neutral-700 flex-1 truncate" }, d),
+              E("span", { className: "text-[11px] text-neutral-400" }, emps.length),
+              deptAvg != null ? E("span", { className: `text-[11px] font-semibold ml-2 w-9 text-right ${eddScoreColor(deptAvg)}` }, deptAvg.toFixed(1)) : E("span", { className: "w-9" })
+            ),
+            open ? E("div", { className: "bg-neutral-50/40" }, emps.map(employeeRow)) : null
+          );
+        }));
+
+  const rosterPanel = E(Card, { className: "overflow-hidden" },
     E("div", { className: "p-3 border-b border-neutral-100" },
-      E("input", { value: q, onChange: (e) => setQ(e.target.value), placeholder: "Search…", className: "w-full text-sm border border-neutral-200 rounded-full px-3 py-1.5" })),
-    E("div", { className: "max-h-[70vh] overflow-auto divide-y divide-neutral-50" }, filtered.map(e => {
-      const reviews = (db.eddReviews || []).filter(r => r.employeeId === e.id);
-      const latest = reviews[reviews.length - 1];
-      const avg = latest ? eddAverage(latest.scores) : null;
-      return E("button", {
-        key: e.id, onClick: () => setSelectedId(e.id),
-        className: `w-full text-left flex items-center gap-2.5 px-3 py-2.5 hover:bg-neutral-50/60 ${selectedId === e.id ? "bg-neutral-50" : ""}`
-      },
-        E(Avatar, { name: e.name }),
-        E("div", { className: "flex-1 min-w-0" },
-          E("div", { className: "text-[13px] font-medium text-neutral-900 truncate" }, e.name),
-          E("div", { className: "text-[11px] text-neutral-400 truncate" }, e.level, " · ", e.dept)
-        ),
-        avg != null ? E("span", { className: `text-[12px] font-semibold ${eddScoreColor(avg)}` }, avg.toFixed(1)) : null
-      );
-    }))
+      E("input", {
+        value: q, onChange: (e) => setQ(e.target.value),
+        placeholder: isMaster ? "Search anyone by name, role or department…" : "Search…",
+        className: "w-full text-sm border border-neutral-200 rounded-full px-3 py-1.5"
+      })),
+    rosterBody
   );
+
+  const overview = isMaster ? E(Card, { className: "p-4" },
+    E("div", { className: "text-[11px] uppercase tracking-wide text-neutral-400 mb-3" }, "Org overview"),
+    E("div", { className: "grid grid-cols-2 md:grid-cols-4 gap-3" },
+      E("div", null,
+        E("div", { className: "text-[10px] uppercase text-neutral-400" }, "Employees"),
+        E("div", { className: "text-xl font-bold text-neutral-900" }, visible.length)),
+      E("div", null,
+        E("div", { className: "text-[10px] uppercase text-neutral-400" }, "Reviewed"),
+        E("div", { className: "text-xl font-bold text-emerald-600" }, reviewedCount)),
+      E("div", null,
+        E("div", { className: "text-[10px] uppercase text-neutral-400" }, "Not yet reviewed"),
+        E("div", { className: `text-xl font-bold ${visible.length - reviewedCount > 0 ? "text-rose-600" : "text-neutral-900"}` }, visible.length - reviewedCount)),
+      E("div", null,
+        E("div", { className: "text-[10px] uppercase text-neutral-400" }, "Org average score"),
+        E("div", { className: `text-xl font-bold ${eddScoreColor(orgAvg)}` }, orgAvg == null ? "—" : orgAvg.toFixed(2)))
+    )
+  ) : null;
 
   return E("div", { className: "space-y-4 max-w-6xl" },
     E("div", { className: "text-[11px] uppercase tracking-widest text-neutral-400 mb-1 font-medium" },
       "Employee Data Hub — journey, EDD reviews & documents"),
+    overview,
     showRoster
-      ? E("div", { className: "grid lg:grid-cols-[280px_1fr] gap-4" }, rosterList, selected ? E(EmployeeJourney, { db, update, employee: selected, role, meId, myEmpId, nameOf }) : E(Card, { className: "p-8 text-center text-neutral-400" }, "No employee record linked to your account."))
+      ? E("div", { className: "grid lg:grid-cols-[300px_1fr] gap-4" }, rosterPanel, selected ? E(EmployeeJourney, { db, update, employee: selected, role, meId, myEmpId, nameOf }) : E(Card, { className: "p-8 text-center text-neutral-400" }, "No employee record linked to your account."))
       : (selected ? E(EmployeeJourney, { db, update, employee: selected, role, meId, myEmpId, nameOf }) : E(Card, { className: "p-8 text-center text-neutral-400" }, "No employee record linked to your account."))
   );
 }
@@ -7519,7 +7599,8 @@ function HRModal({
   modal,
   close,
   update,
-  nameOf
+  nameOf,
+  goToEddHub
 }) {
   const [sub, setSub] = useState("overview");
   const [up, setUp] = useState("");
@@ -7674,13 +7755,21 @@ function HRModal({
     }
   }, titles[modal.type]), emp && /*#__PURE__*/React.createElement("div", {
     className: "text-[11px] text-neutral-400"
-  }, emp.role, " · ", emp.dept))), /*#__PURE__*/React.createElement("button", {
+  }, emp.role, " · ", emp.dept))), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, emp && goToEddHub && /*#__PURE__*/React.createElement("button", {
+    onClick: () => goToEddHub(emp.id),
+    className: "text-[12px] font-medium text-neutral-600 hover:text-neutral-900 border border-neutral-200 rounded-full px-3 py-1.5 inline-flex items-center gap-1.5"
+  }, /*#__PURE__*/React.createElement(Icon, {
+    n: "userc",
+    size: 13
+  }), " Employee Data Hub"), /*#__PURE__*/React.createElement("button", {
     onClick: close,
     className: "text-neutral-400 hover:text-neutral-600"
   }, /*#__PURE__*/React.createElement(Icon, {
     n: "x",
     size: 18
-  }))), /*#__PURE__*/React.createElement("div", {
+  })))), /*#__PURE__*/React.createElement("div", {
     className: "overflow-auto"
   }, emp && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "px-5 pt-3 flex gap-1 flex-wrap border-b border-neutral-100"
@@ -8752,6 +8841,12 @@ function App() {
   const [tab, setTab] = useState("master");
   const [bell, setBell] = useState(false);
   const [modal, setModal] = useState(null);
+  const [eddFocusId, setEddFocusId] = useState(null);
+  const goToEddHub = (empId) => {
+    setEddFocusId(empId);
+    setTab("eddhub");
+    setModal(null);
+  };
   useEffect(() => {
     store.set(KEY, JSON.stringify(db));
   }, [db]);
@@ -9337,7 +9432,8 @@ function App() {
     role: role,
     meId: meId,
     myEmpId: myEmpId,
-    nameOf: enameOf
+    nameOf: enameOf,
+    focusEmpId: eddFocusId
   }), tab === "office" && /*#__PURE__*/React.createElement(OfficeV, {
     db: db,
     update: update,
@@ -9397,7 +9493,8 @@ function App() {
     modal: modal,
     close: () => setModal(null),
     update: update,
-    nameOf: enameOf
+    nameOf: enameOf,
+    goToEddHub: goToEddHub
   }) : ["new_leave", "leave_hr", "leave_decide"].includes(modal.type) ? /*#__PURE__*/React.createElement(LeaveModal, {
     db: db,
     me: me,
