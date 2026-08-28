@@ -2097,6 +2097,8 @@ function seed() {
     salesTopClients: [],
     salesProductType: [],
     salesIndustryActual: [],
+    eddReviews: [],
+    employeeDocuments: [],
     settings: {
       webhookUrl: "https://hook.us2.make.com/bsh3fl3qco185yg6nqm1k27dd14gcj19",
       emailEnabled: true,
@@ -3016,6 +3018,514 @@ function SalesPerformanceV({ db, update, role }) {
     industryTable,
     clientsTable,
     budgetTable
+  );
+}
+
+/* ================= Employee Data Hub (EDD journey + documents) =================
+   Source: "2026.8 EDD Form.docx" (Decision Lab Employee Development Dialogue), imported 2026-08-27.
+   One form, two seasons: Summer = compensation/performance (sections 7-8 active), Winter =
+   career planning (sections 4-6 go deep). Confidential to employee + line manager + HR. */
+const EDD_COMPETENCIES = [
+  {
+    key: "rigorous", name: "Rigorous", sub: "Evidence and method quality", craft: false,
+    items: [
+      "Research design meets agreed methodological and ethical standards before fieldwork starts",
+      "Data and analysis are checked / validated before being shared internally or with clients",
+      "Every conclusion can be traced back to specific evidence, not assumption"
+    ],
+    anchors: { 1: "Design / analysis errors go unchecked; conclusions often unsupported", 3: "Standards generally met; occasional gaps in validation or traceability", 5: "Consistently rigorous; zero unchecked errors; every conclusion is evidence-backed" }
+  },
+  {
+    key: "truth_seeking", name: "Truth-seeking", sub: "Clear, direct, honest insight", craft: false,
+    items: [
+      "Insight is written in plain, direct language — no jargon, no hedging",
+      "Limitations or gaps in the data are stated explicitly, not glossed over",
+      "Output always ends in a clear conclusion or recommendation, not just observations"
+    ],
+    anchors: { 1: "Vague, hedged, or purely descriptive output; no clear conclusion", 3: "Mostly clear and direct; limitations sometimes underplayed", 5: "Consistently sharp, honest, and conclusive; gaps always flagged upfront" }
+  },
+  {
+    key: "curious", name: "Curious", sub: "Deliberate use of AI and technology", craft: false,
+    items: [
+      "Actively trials new tools or methods (including AI) on real projects, not just in theory",
+      "Tool choice is judged by whether it gets to a better answer faster — not by novelty",
+      "Reusable approaches / templates are documented and shared with the wider team"
+    ],
+    anchors: { 1: "Sticks to familiar tools; no experimentation; nothing shared", 3: "Occasionally trials new methods; limited documentation / sharing", 5: "Regularly tests and adopts new tools with clear speed / quality gain; builds reusable assets the team uses" }
+  },
+  {
+    key: "agile", name: "Agile", sub: "Speed, client proximity, one team", craft: false,
+    items: [
+      "Delivers against agreed timelines that match the client's decision deadline",
+      "Actively collaborates across teams rather than working in isolation",
+      "Stays current on client context / constraints and adjusts plans quickly when priorities shift, without dropping quality"
+    ],
+    anchors: { 1: "Misses deadlines; works in silo; slow to adapt to changing priorities", 3: "Generally on time and collaborative; adapts with some friction or delay", 5: "Always meets client deadlines; seamless cross-team work; adapts fast without sacrificing quality" }
+  },
+  {
+    key: "ambitious", name: "Ambitious", sub: "Owns outcomes; impact over activity", craft: false,
+    items: [
+      "Takes personal responsibility for the outcome of the work, not just task completion",
+      "Progress is judged by impact on client decisions, not hours spent or activity volume",
+      "Proactively pushes clients toward a decision, even when it's an uncomfortable one",
+      "Follows up to check recommendations were acted on"
+    ],
+    anchors: { 1: "Focused on completing tasks, not outcomes; avoids difficult conversations", 3: "Takes ownership on most projects; occasionally passive on follow-through", 5: "Consistently drives client decisions to action; owns outcomes end-to-end; follows up until impact is confirmed" }
+  },
+  {
+    key: "delivery", name: "Delivery & client ownership", sub: "Craft — scales by level", craft: true,
+    layerItems: {
+      "Execution": "Delivers accurate, well-structured outputs to standard. Manages own tasks and deadlines without chasing. Growing awareness of client context.",
+      "Project Leader": "Runs client projects end-to-end: structure, timelines, deliverables, day-to-day client contact. Owns analytical quality and the recommendation.",
+      "Account Leader": "Owns client relationships and growth within accounts. Converts delivery trust into expansion. Quality and commercial outcome across multiple engagements.",
+      "Practice Leader": "Owns practice commercial outcome: pipeline, pricing, sector authority. Shifts from delivery to business development and oversight of major engagements."
+    },
+    anchors: { 1: "Falls short of the delivery standard for their level; needs close supervision.", 3: "Meets the delivery and ownership standard expected at their level.", 5: "Exceeds the standard for their level; trusted with the most demanding work end-to-end." }
+  },
+  {
+    key: "team_leadership", name: "Team leadership & knowledge", sub: "Craft — scales by level", craft: true,
+    layerItems: {
+      "Execution": "Supports the team, flags issues early, contributes ideas beyond the task. Contributes to the project close and knowledge base.",
+      "Project Leader": "Leads teams of consultants and associates: allocates work, reviews outputs, coaches juniors. Runs the project close ritual and feeds the knowledge base.",
+      "Account Leader": "Develops Project Leaders. Sets delivery standards across the account. Ensures knowledge capture is embedded across the team.",
+      "Practice Leader": "Builds the practice's leadership bench. Drives thought leadership and sector expertise. Accountable for the practice's knowledge assets and standards."
+    },
+    anchors: { 1: "Works in isolation; little contribution to the team or knowledge base for their level.", 3: "Supports and leads to the standard expected at their level; contributes to knowledge capture.", 5: "Lifts the team well beyond their level; embeds knowledge capture as a standard others follow." }
+  }
+];
+const EDD_LAYERS = ["Execution", "Project Leader", "Account Leader", "Practice Leader"];
+// Decision Lab's real `employees.level` values (Individual/Lead/Manager/Director/C-suite) don't
+// map 1:1 onto the EDD form's four craft layers (Execution/Project Leader/Account Leader/Practice
+// Leader) — this is a judgment-call default. It only pre-fills the layer picker in the competency
+// grid; HR/manager can override per review, it is never locked.
+const EDD_LAYER_DEFAULT = {
+  "Individual": "Execution",
+  "Lead": "Project Leader",
+  "Manager": "Account Leader",
+  "Director": "Practice Leader",
+  "C-suite": "Practice Leader"
+};
+const EDD_DOC_TYPES = [
+  { v: "edd_form", label: "EDD review (PDF export)" },
+  { v: "contract", label: "Contract" },
+  { v: "cv", label: "CV / resume" },
+  { v: "id", label: "ID / personal document" },
+  { v: "certificate", label: "Certificate / qualification" },
+  { v: "other", label: "Other" }
+];
+const eddAverage = (scores) => {
+  const vals = EDD_COMPETENCIES.map(c => Number(scores[c.key])).filter(v => v > 0);
+  if (!vals.length) return null;
+  return vals.reduce((a, b) => a + b, 0) / vals.length;
+};
+const eddScoreColor = (avg) => avg == null ? "text-neutral-400" : avg >= 4 ? "text-emerald-600" : avg >= 3 ? "text-neutral-700" : "text-rose-600";
+const eddNewId = (prefix) => `${prefix}_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
+
+/* ---- role helpers ----
+   HR + CEO + admin see everyone's journey (per the source policy: "HR, CEO to view & keep
+   track"). A team_leader / manager sees their own record plus direct reports (via managerId).
+   Everyone else — the majority of roles — sees only their own record. */
+const EDD_ALL_ACCESS_ROLES = ["admin", "ceo", "hr_manager"];
+const eddCanViewAll = (role) => EDD_ALL_ACCESS_ROLES.includes(role);
+const eddIsManagerOf = (db, myEmpId, targetEmpId) => {
+  const emp = (db.employees || []).find(e => e.id === targetEmpId);
+  return !!(emp && myEmpId && emp.managerId === myEmpId);
+};
+const eddVisibleEmployees = (db, role, myEmpId) => {
+  const all = db.employees || [];
+  if (eddCanViewAll(role)) return all;
+  return all.filter(e => e.id === myEmpId || eddIsManagerOf(db, myEmpId, e.id));
+};
+
+function EddScoreCell({ label, sub, anchors, value, editable, onChange }) {
+  const E = React.createElement;
+  return E("div", { className: "border border-neutral-100 rounded-xl p-3" },
+    E("div", { className: "flex items-start justify-between gap-2 mb-1" },
+      E("div", null,
+        E("div", { className: "text-[13px] font-semibold text-neutral-900" }, label),
+        E("div", { className: "text-[11px] text-neutral-400" }, sub)
+      ),
+      editable
+        ? E("select", {
+            value: value || "",
+            onChange: (e) => onChange(e.target.value ? Number(e.target.value) : null),
+            className: "text-sm font-bold border border-neutral-200 rounded-lg px-2 py-1 w-16 text-center"
+          }, E("option", { value: "" }, "—"), [1, 2, 3, 4, 5].map(n => E("option", { key: n, value: n }, n)))
+        : E("div", { className: `text-lg font-bold ${eddScoreColor(value)}` }, value || "—")
+    ),
+    E("div", { className: "text-[11px] text-neutral-500 leading-snug space-y-0.5" },
+      [1, 3, 5].map(n => anchors[n] ? E("div", { key: n }, E("b", null, n, " — "), anchors[n]) : null)
+    )
+  );
+}
+
+function EddFormModal({ db, update, employee, existing, onClose, role, meId, myEmpId, nameOf }) {
+  const E = React.createElement;
+  const isNew = !existing;
+  const manager = (db.employees || []).find(e => e.id === employee.managerId);
+  const [form, setForm] = useState(() => existing ? { ...existing } : {
+    id: eddNewId("edd"),
+    employeeId: employee.id,
+    reviewType: "summer",
+    reviewDate: iso(today()),
+    jobTitle: employee.role || employee.level || "",
+    managerId: employee.managerId || "",
+    layer: EDD_LAYER_DEFAULT[employee.level] || "Execution",
+    currentLevel: employee.level || "",
+    targetLevel: "",
+    scores: {},
+    followUpNotes: "", expectationsNotes: "", performanceStrengthsNotes: "", trajectoryNotes: "",
+    competencyGaps: "", developmentActions: [], wellbeingNotes: "",
+    hrTotalTargetSalary: null, hrMonthlyGross: null, hrMonthlyBonusTarget: null, hrSavingsPlan: null,
+    curiosityBudgetItems: [], actions: [],
+    agreedByEmployee: false, agreedByEmployeeAt: null,
+    agreedByManager: false, agreedByManagerAt: null,
+    status: "draft", submittedToHrAt: null,
+    createdBy: meId, createdAt: Date.now(), updatedAt: Date.now()
+  });
+  const isSummer = form.reviewType === "summer";
+  const iAmEmployee = myEmpId === employee.id;
+  const iAmManager = myEmpId === form.managerId;
+  const iAmHR = eddCanViewAll(role);
+  const canEditContent = (iAmEmployee || iAmManager || iAmHR) && form.status !== "submitted_to_hr";
+  const avg = eddAverage(form.scores);
+
+  const set = (patch) => setForm(f => ({ ...f, ...patch, updatedAt: Date.now() }));
+  const setScore = (key, v) => set({ scores: { ...form.scores, [key]: v } });
+
+  const saveForm = (statusOverride) => {
+    const finalForm = statusOverride ? { ...form, status: statusOverride } : form;
+    update(next => {
+      const arr = next.eddReviews || (next.eddReviews = []);
+      const i = arr.findIndex(r => r.id === finalForm.id);
+      if (i >= 0) arr[i] = finalForm; else arr.push(finalForm);
+    });
+    setForm(finalForm);
+  };
+
+  const toggleAgreeEmployee = () => {
+    if (!iAmEmployee && !eddCanViewAll(role)) return;
+    const v = !form.agreedByEmployee;
+    saveForm();
+    set({ agreedByEmployee: v, agreedByEmployeeAt: v ? Date.now() : null });
+  };
+  const toggleAgreeManager = () => {
+    if (!iAmManager && !eddCanViewAll(role)) return;
+    const v = !form.agreedByManager;
+    set({ agreedByManager: v, agreedByManagerAt: v ? Date.now() : null });
+  };
+
+  const rowsTable = (rows, cols, onChange, addRow, removeRow) => E("div", { className: "space-y-1.5" },
+    rows.map((row, idx) => E("div", { key: idx, className: "grid gap-1.5", style: { gridTemplateColumns: cols.map(c => c.w || "1fr").join(" ") + (canEditContent ? " 24px" : "") } },
+      cols.map(c => E("input", {
+        key: c.k,
+        value: row[c.k] || "",
+        placeholder: c.label,
+        disabled: !canEditContent,
+        onChange: (e) => onChange(idx, c.k, e.target.value),
+        className: "text-[12px] border border-neutral-200 rounded-lg px-2 py-1 disabled:bg-neutral-50 disabled:text-neutral-400"
+      })),
+      canEditContent ? E("button", { onClick: () => removeRow(idx), className: "text-neutral-300 hover:text-rose-500 text-xs" }, "✕") : null
+    )),
+    canEditContent ? E("button", { onClick: addRow, className: "text-[11px] text-neutral-500 hover:text-neutral-800 inline-flex items-center gap-1" }, "+ add row") : null
+  );
+
+  const Section = (num, title, note, body) => E("div", { className: "border-t border-neutral-100 pt-4 mt-4 first:border-0 first:mt-0 first:pt-0" },
+    E("div", { className: "flex items-center gap-2 mb-1" },
+      E("div", { className: "font-display text-[13px] uppercase tracking-wide", style: { fontWeight: 700 } }, num, ". ", title),
+      note ? E("span", { className: "text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700" }, note) : null
+    ),
+    body
+  );
+
+  const notesArea = (value, key, placeholder) => E("textarea", {
+    value: value || "", disabled: !canEditContent, placeholder: placeholder || "",
+    onChange: (e) => set({ [key]: e.target.value }),
+    rows: 3,
+    className: "w-full text-[13px] border border-neutral-200 rounded-xl px-3 py-2 disabled:bg-neutral-50 disabled:text-neutral-500"
+  });
+
+  const body = E("div", { className: "space-y-1" },
+    // header
+    E("div", { className: "grid grid-cols-2 md:grid-cols-4 gap-3 bg-neutral-50 rounded-xl p-3" },
+      E(Field, { label: "Employee" }, E("div", { className: "text-sm font-semibold" }, employee.name)),
+      E(Field, { label: "Job title" }, canEditContent
+        ? E("input", { value: form.jobTitle || "", onChange: (e) => set({ jobTitle: e.target.value }), className: INP })
+        : E("div", { className: "text-sm" }, form.jobTitle || "—")),
+      E(Field, { label: "Line manager" }, E("div", { className: "text-sm" }, manager ? manager.name : "—")),
+      E(Field, { label: "Review date" }, canEditContent
+        ? E("input", { type: "date", value: form.reviewDate || "", onChange: (e) => set({ reviewDate: e.target.value }), className: INP })
+        : E("div", { className: "text-sm" }, fmtDate(form.reviewDate)))
+    ),
+    E("div", { className: "flex items-center gap-2 mt-3" },
+      ["summer", "winter"].map(t => E("button", {
+        key: t,
+        disabled: !canEditContent,
+        onClick: () => set({ reviewType: t }),
+        className: `text-xs px-3 py-1.5 rounded-full ring-1 ring-inset ${form.reviewType === t ? "bg-neutral-900 text-white ring-neutral-900" : "bg-white text-neutral-600 ring-neutral-200"}`
+      }, t === "summer" ? "☐ Summer review — compensation, performance" : "☐ Winter review — career planning, development"))
+    ),
+
+    Section("1", "Follow-up on last review", null,
+      notesArea(form.followUpNotes, "followUpNotes", "Were the agreed actions completed? Did the career plan hold? What has changed since?")),
+
+    Section("2", "Competency assessment", "scored every review",
+      E("div", { className: "grid md:grid-cols-2 gap-3" },
+        EDD_COMPETENCIES.map(c => {
+          if (!c.craft) {
+            return E(EddScoreCell, {
+              key: c.key, label: c.name, sub: c.sub, anchors: c.anchors,
+              value: form.scores[c.key], editable: canEditContent, onChange: (v) => setScore(c.key, v)
+            });
+          }
+          const layerSub = c.layerItems[form.layer] || "";
+          return E(EddScoreCell, {
+            key: c.key, label: c.name, sub: `${c.sub} — ${form.layer}: ${layerSub}`, anchors: c.anchors,
+            value: form.scores[c.key], editable: canEditContent, onChange: (v) => setScore(c.key, v)
+          });
+        })
+      ),
+      E("div", { className: "flex items-center justify-between mt-3 bg-neutral-900 text-white rounded-xl px-4 py-2.5" },
+        E("div", { className: "text-[11px] uppercase tracking-wide" }, "Average score"),
+        E("div", { className: "flex items-center gap-3" },
+          canEditContent ? E("select", {
+            value: form.layer, onChange: (e) => set({ layer: e.target.value }),
+            className: "text-[11px] rounded-lg px-2 py-1 text-neutral-900"
+          }, EDD_LAYERS.map(l => E("option", { key: l, value: l }, l))) : E("span", { className: "text-[11px] text-neutral-300" }, form.layer),
+          E("div", { className: "text-xl font-bold" }, avg == null ? "—" : avg.toFixed(2)),
+          avg != null && avg >= 4 ? E("span", { className: "text-[10px] font-semibold bg-emerald-500 text-white rounded-full px-2 py-0.5" }, "4.0+ — promotion trigger") : null
+        )
+      )),
+
+    Section("3", "Expectations for the coming period", null,
+      notesArea(form.expectationsNotes, "expectationsNotes", "What tasks and results are expected next period?")),
+
+    Section("4", "Performance, strengths and skills", isSummer ? "light touch" : "winter focus — go deep",
+      notesArea(form.performanceStrengthsNotes, "performanceStrengthsNotes", "What went well? Real strengths and drivers? What does the next level demand that they don't yet have?")),
+
+    Section("5", "Long-term trajectory", isSummer ? "light touch" : "winter focus — go deep",
+      notesArea(form.trajectoryNotes, "trajectoryNotes", "Where does the employee want to be in 1-2 years, and 3-5 years?")),
+
+    Section("6", "Career plan", isSummer ? "check, don't re-open" : "winter focus — reset fully",
+      E("div", { className: "space-y-3" },
+        E("div", { className: "grid grid-cols-2 gap-3" },
+          E(Field, { label: "Current level / title" }, canEditContent
+            ? E("input", { value: form.currentLevel || "", onChange: (e) => set({ currentLevel: e.target.value }), className: INP })
+            : E("div", { className: "text-sm" }, form.currentLevel || "—")),
+          E(Field, { label: "Target next level" }, canEditContent
+            ? E("input", { value: form.targetLevel || "", onChange: (e) => set({ targetLevel: e.target.value }), className: INP })
+            : E("div", { className: "text-sm" }, form.targetLevel || "—"))
+        ),
+        E(Field, { label: "Competency gaps to promotion" }, notesArea(form.competencyGaps, "competencyGaps", "Which competencies are below 4.0? Pull from the grid above.")),
+        E(Field, { label: "Development actions to close the gaps" },
+          rowsTable(form.developmentActions, [{ k: "action", label: "Action" }, { k: "byWhen", label: "By when" }, { k: "status", label: "Status" }],
+            (idx, k, v) => { const arr = [...form.developmentActions]; arr[idx] = { ...arr[idx], [k]: v }; set({ developmentActions: arr }); },
+            () => set({ developmentActions: [...form.developmentActions, {}] }),
+            (idx) => set({ developmentActions: form.developmentActions.filter((_, i) => i !== idx) })
+          ))
+      )),
+
+    isSummer ? Section("7", "Wellbeing, working culture and support", "summer only — handed to HR",
+      notesArea(form.wellbeingNotes, "wellbeingNotes", "Pace and workload? Culture/team? Energy and wellbeing? Where would support help most?")) : null,
+
+    isSummer ? Section("8", "Decisions for HR", "summer only — decisions, not discussion",
+      E("div", { className: "space-y-3" },
+        E("div", { className: "grid grid-cols-2 md:grid-cols-4 gap-3" },
+          [["hrTotalTargetSalary", "Total target salary (VND m/mo)"], ["hrMonthlyGross", "Monthly gross (VND m)"], ["hrMonthlyBonusTarget", "Monthly bonus at target (VND m)"], ["hrSavingsPlan", "Savings plan — Dragon (VND m/mo)"]].map(([k, label]) =>
+            E(Field, { key: k, label: label }, canEditContent && iAmHR
+              ? E("input", { type: "number", value: form[k] == null ? "" : form[k], onChange: (e) => set({ [k]: e.target.value === "" ? null : Number(e.target.value) }), className: INP })
+              : E("div", { className: "text-sm" }, form[k] == null ? "—" : form[k]))
+          )
+        ),
+        E(Field, { label: "Personal curiosity budget — agreed use" },
+          rowsTable(form.curiosityBudgetItems, [{ k: "use", label: "Course / certification / event / tool" }, { k: "cost", label: "Est. cost (VND)", w: "160px" }],
+            (idx, k, v) => { const arr = [...form.curiosityBudgetItems]; arr[idx] = { ...arr[idx], [k]: v }; set({ curiosityBudgetItems: arr }); },
+            () => set({ curiosityBudgetItems: [...form.curiosityBudgetItems, {}] }),
+            (idx) => set({ curiosityBudgetItems: form.curiosityBudgetItems.filter((_, i) => i !== idx) })
+          ))
+      )) : null,
+
+    Section("9", "Actions", "anything else agreed during the EDD",
+      rowsTable(form.actions, [{ k: "action", label: "Agreed action" }, { k: "owner", label: "Owner", w: "120px" }, { k: "byWhen", label: "By when", w: "110px" }, { k: "status", label: "Status", w: "110px" }],
+        (idx, k, v) => { const arr = [...form.actions]; arr[idx] = { ...arr[idx], [k]: v }; set({ actions: arr }); },
+        () => set({ actions: [...form.actions, {}] }),
+        (idx) => set({ actions: form.actions.filter((_, i) => i !== idx) })
+      )),
+
+    E("div", { className: "border-t border-neutral-100 pt-4 mt-4" },
+      E("div", { className: "text-[11px] text-neutral-400 mb-2" }, "Confidential — kept between employee, line manager, and HR. The form only counts once both parties agree and it reaches HR."),
+      E("div", { className: "flex flex-wrap items-center gap-3" },
+        E("label", { className: "inline-flex items-center gap-2 text-sm" },
+          E("input", { type: "checkbox", checked: !!form.agreedByEmployee, disabled: !(iAmEmployee || eddCanViewAll(role)), onChange: toggleAgreeEmployee }),
+          "Agreed by employee"),
+        E("label", { className: "inline-flex items-center gap-2 text-sm" },
+          E("input", { type: "checkbox", checked: !!form.agreedByManager, disabled: !(iAmManager || eddCanViewAll(role)), onChange: toggleAgreeManager }),
+          "Agreed by manager"),
+        E("div", { className: "flex-1" }),
+        E("button", { onClick: () => saveForm("draft"), className: "text-sm rounded-full px-4 py-2 ring-1 ring-neutral-200 hover:bg-neutral-50" }, "Save draft"),
+        (form.agreedByEmployee && form.agreedByManager && form.status !== "submitted_to_hr" && (iAmHR || iAmManager)) ? E("button", {
+          onClick: () => saveForm("submitted_to_hr"),
+          className: "text-sm bg-neutral-900 text-white rounded-full px-4 py-2 hover:bg-neutral-700"
+        }, "Submit to HR") : null,
+        form.status === "submitted_to_hr" ? E("span", { className: "text-[11px] font-semibold text-emerald-700 bg-emerald-50 rounded-full px-3 py-1.5" }, "Submitted to HR") : null
+      )
+    )
+  );
+
+  return E("div", { className: "fixed inset-0 z-40 bg-black/40 flex items-start justify-center overflow-auto py-8" },
+    E("div", { className: "bg-white rounded-2xl shadow-xl w-full max-w-4xl mx-4" },
+      E("div", { className: "flex items-center justify-between px-5 py-3.5 border-b border-neutral-100 sticky top-0 bg-white rounded-t-2xl" },
+        E("div", { className: "font-display text-sm uppercase tracking-wide", style: { fontWeight: 700 } }, "Employee Development Dialogue"),
+        E("button", { onClick: onClose, className: "text-neutral-400 hover:text-neutral-800" }, E(Icon, { n: "x", size: 16 }))
+      ),
+      E("div", { className: "px-5 py-4 max-h-[75vh] overflow-auto" }, body)
+    )
+  );
+}
+
+function EmployeeDocuments({ db, update, employee, role, myEmpId }) {
+  const E = React.createElement;
+  const canManage = eddCanViewAll(role) || myEmpId === employee.id || eddIsManagerOf(db, myEmpId, employee.id);
+  const docs = (db.employeeDocuments || []).filter(d => d.employeeId === employee.id).sort((a, b) => (b.uploadedAt || 0) - (a.uploadedAt || 0));
+  const [docType, setDocType] = useState("contract");
+  const [status, setStatus] = useState("idle");
+  const upload = async (file) => {
+    setStatus("uploading");
+    try {
+      const path = `employees/${employee.id}/${Date.now()}_${file.name.replace(/[^\w.\-]+/g, "_")}`;
+      const url = await sbUploadFile(path, file);
+      update(next => {
+        const arr = next.employeeDocuments || (next.employeeDocuments = []);
+        arr.push({ id: eddNewId("doc"), employeeId: employee.id, docType, title: file.name, fileUrl: url, fileName: file.name, uploadedBy: myEmpId, uploadedAt: Date.now(), notes: "" });
+      });
+      setStatus("idle");
+    } catch (e) { setStatus("error"); }
+  };
+  const removeDoc = (id) => update(next => { next.employeeDocuments = (next.employeeDocuments || []).filter(d => d.id !== id); });
+
+  return E(Card, { className: "p-5" },
+    E("div", { className: "flex items-center justify-between mb-3" },
+      E("div", { className: "font-display text-sm uppercase tracking-wide", style: { fontWeight: 700 } }, "Documents"),
+      canManage ? E("div", { className: "flex items-center gap-2" },
+        E("select", { value: docType, onChange: (e) => setDocType(e.target.value), className: "text-[11px] border border-neutral-200 rounded-lg px-2 py-1.5" },
+          EDD_DOC_TYPES.map(t => E("option", { key: t.v, value: t.v }, t.label))),
+        E("label", { className: "inline-flex items-center gap-1.5 text-[11px] cursor-pointer bg-neutral-900 text-white rounded-full px-3 py-1.5 hover:bg-neutral-700" },
+          E(Icon, { n: "plus", size: 11 }), status === "uploading" ? "Uploading…" : "Upload",
+          E("input", {
+            type: "file", className: "hidden",
+            onChange: (e) => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) upload(f); }
+          }))
+      ) : null
+    ),
+    docs.length === 0 ? E("div", { className: "text-sm text-neutral-400 text-center py-6" }, "No documents yet.") :
+      E("div", { className: "divide-y divide-neutral-50" }, docs.map(d => E("div", { key: d.id, className: "flex items-center gap-3 py-2" },
+        E(Icon, { n: "file", size: 14, className: "text-neutral-400 shrink-0" }),
+        E("a", { href: d.fileUrl, target: "_blank", rel: "noreferrer", className: "flex-1 min-w-0 truncate text-sm underline decoration-neutral-300" }, d.title),
+        E("span", { className: "text-[10px] uppercase tracking-wide text-neutral-400" }, (EDD_DOC_TYPES.find(t => t.v === d.docType) || {}).label || d.docType),
+        E("span", { className: "text-[11px] text-neutral-400" }, fmtDate(new Date(d.uploadedAt).toISOString().slice(0, 10))),
+        canManage ? E("button", { onClick: () => removeDoc(d.id), className: "text-neutral-300 hover:text-rose-500 text-xs" }, "remove") : null
+      ))),
+    E("div", { className: "text-[10px] text-neutral-300 mt-3" }, "Files are stored in Supabase Storage. Access here is gated by role in the app; the storage bucket itself is the same shared bucket used for policy PDFs elsewhere in this cockpit.")
+  );
+}
+
+function EmployeeJourney({ db, update, employee, role, meId, myEmpId, nameOf }) {
+  const E = React.createElement;
+  const reviews = (db.eddReviews || []).filter(r => r.employeeId === employee.id).sort((a, b) => new Date(a.reviewDate) - new Date(b.reviewDate));
+  const latest = reviews[reviews.length - 1];
+  const [modal, setModal] = useState(null);
+  const canStartReview = eddCanViewAll(role) || myEmpId === employee.managerId || myEmpId === employee.id;
+
+  const chartData = {
+    labels: reviews.map(r => fmtDate(r.reviewDate) + " · " + (r.reviewType === "summer" ? "Su" : "Wi")),
+    datasets: [{ label: "Average score", data: reviews.map(r => eddAverage(r.scores)), borderColor: "#1D7AAD", backgroundColor: "#1D7AAD", tension: 0.3 }]
+  };
+
+  const header = E("div", { className: "flex items-center justify-between mb-4" },
+    E("div", { className: "flex items-center gap-3" },
+      E(Avatar, { name: employee.name }),
+      E("div", null,
+        E("div", { className: "font-semibold text-neutral-900" }, employee.name),
+        E("div", { className: "text-[12px] text-neutral-400" }, employee.role || employee.level, " · ", employee.dept)
+      )
+    ),
+    canStartReview ? E("button", {
+      onClick: () => setModal({ existing: null }),
+      className: "text-sm bg-neutral-900 text-white rounded-full px-4 py-2 hover:bg-neutral-700 inline-flex items-center gap-1.5"
+    }, E(Icon, { n: "plus", size: 14 }), " New EDD review") : null
+  );
+
+  const kpis = E("div", { className: "grid grid-cols-3 gap-3 mb-4" },
+    E("div", { className: "bg-neutral-50 rounded-xl p-3" }, E("div", { className: "text-[10px] uppercase text-neutral-400" }, "Latest average"), E("div", { className: `text-xl font-bold ${eddScoreColor(latest ? eddAverage(latest.scores) : null)}` }, latest ? (eddAverage(latest.scores) || 0).toFixed(2) : "—")),
+    E("div", { className: "bg-neutral-50 rounded-xl p-3" }, E("div", { className: "text-[10px] uppercase text-neutral-400" }, "Reviews on record"), E("div", { className: "text-xl font-bold text-neutral-900" }, reviews.length)),
+    E("div", { className: "bg-neutral-50 rounded-xl p-3" }, E("div", { className: "text-[10px] uppercase text-neutral-400" }, "Last review"), E("div", { className: "text-xl font-bold text-neutral-900" }, latest ? fmtDate(latest.reviewDate) : "—"))
+  );
+
+  const chart = reviews.length ? E(Card, { className: "p-4 mb-4" },
+    E("div", { className: "text-[11px] uppercase tracking-wide text-neutral-400 mb-2" }, "Score trend"),
+    E(ChartBox, { type: "line", data: chartData, options: { scales: { y: { min: 0, max: 5 } }, plugins: { legend: { display: false } } }, height: 180 })
+  ) : null;
+
+  const timeline = E(Card, { className: "overflow-hidden mb-4" },
+    E("div", { className: "px-4 py-2.5 border-b border-neutral-100 text-[11px] uppercase tracking-wide text-neutral-400" }, "Review history"),
+    reviews.length === 0 ? E("div", { className: "text-sm text-neutral-400 text-center py-6" }, "No EDD reviews yet.") :
+      E("div", { className: "divide-y divide-neutral-50" }, [...reviews].reverse().map(r => E("button", {
+        key: r.id, onClick: () => setModal({ existing: r }),
+        className: "w-full text-left flex items-center gap-3 px-4 py-2.5 hover:bg-neutral-50/60"
+      },
+        E("span", { className: `text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${r.reviewType === "summer" ? "bg-amber-100 text-amber-700" : "bg-cyan-100 text-cyan-700"}` }, r.reviewType),
+        E("span", { className: "text-sm text-neutral-700 flex-1" }, fmtDate(r.reviewDate)),
+        E("span", { className: `text-sm font-semibold ${eddScoreColor(eddAverage(r.scores))}` }, (eddAverage(r.scores) || 0).toFixed(2) || "—"),
+        E("span", { className: `text-[10px] uppercase tracking-wide ${r.status === "submitted_to_hr" ? "text-emerald-600" : "text-neutral-400"}` }, r.status.replace(/_/g, " "))
+      )))
+  );
+
+  return E("div", null,
+    header, kpis, chart, timeline,
+    E(EmployeeDocuments, { db, update, employee, role, myEmpId }),
+    modal ? E(EddFormModal, {
+      db, update, employee, existing: modal.existing, role, meId, myEmpId, nameOf,
+      onClose: () => setModal(null)
+    }) : null
+  );
+}
+
+function EmployeeDataHubV({ db, update, role, meId, myEmpId, nameOf }) {
+  const E = React.createElement;
+  const visible = eddVisibleEmployees(db, role, myEmpId);
+  const [selectedId, setSelectedId] = useState(() => (visible.find(e => e.id === myEmpId) || visible[0] || {}).id);
+  const [q, setQ] = useState("");
+  const selected = visible.find(e => e.id === selectedId) || visible[0];
+  const filtered = visible.filter(e => !q || e.name.toLowerCase().includes(q.toLowerCase()));
+  const showRoster = visible.length > 1;
+
+  const rosterList = E(Card, { className: "overflow-hidden" },
+    E("div", { className: "p-3 border-b border-neutral-100" },
+      E("input", { value: q, onChange: (e) => setQ(e.target.value), placeholder: "Search…", className: "w-full text-sm border border-neutral-200 rounded-full px-3 py-1.5" })),
+    E("div", { className: "max-h-[70vh] overflow-auto divide-y divide-neutral-50" }, filtered.map(e => {
+      const reviews = (db.eddReviews || []).filter(r => r.employeeId === e.id);
+      const latest = reviews[reviews.length - 1];
+      const avg = latest ? eddAverage(latest.scores) : null;
+      return E("button", {
+        key: e.id, onClick: () => setSelectedId(e.id),
+        className: `w-full text-left flex items-center gap-2.5 px-3 py-2.5 hover:bg-neutral-50/60 ${selectedId === e.id ? "bg-neutral-50" : ""}`
+      },
+        E(Avatar, { name: e.name }),
+        E("div", { className: "flex-1 min-w-0" },
+          E("div", { className: "text-[13px] font-medium text-neutral-900 truncate" }, e.name),
+          E("div", { className: "text-[11px] text-neutral-400 truncate" }, e.level, " · ", e.dept)
+        ),
+        avg != null ? E("span", { className: `text-[12px] font-semibold ${eddScoreColor(avg)}` }, avg.toFixed(1)) : null
+      );
+    }))
+  );
+
+  return E("div", { className: "space-y-4 max-w-6xl" },
+    E("div", { className: "text-[11px] uppercase tracking-widest text-neutral-400 mb-1 font-medium" },
+      "Employee Data Hub — journey, EDD reviews & documents"),
+    showRoster
+      ? E("div", { className: "grid lg:grid-cols-[280px_1fr] gap-4" }, rosterList, selected ? E(EmployeeJourney, { db, update, employee: selected, role, meId, myEmpId, nameOf }) : E(Card, { className: "p-8 text-center text-neutral-400" }, "No employee record linked to your account."))
+      : (selected ? E(EmployeeJourney, { db, update, employee: selected, role, meId, myEmpId, nameOf }) : E(Card, { className: "p-8 text-center text-neutral-400" }, "No employee record linked to your account."))
   );
 }
 
@@ -7557,7 +8067,7 @@ const ms = x => {
 };
 async function loadFromSB() {
   try {
-    const [users, depsR, catsR, vend, plansR, catB, ccB, reqs, aud, setR, emps, cands, asts, tasks, hrdeps, finSnaps, actItems, lvTypes, lvBal, lvReqs, polDocs, polQs, eqReqs, costReqs, costQs, costSettles, salesBudget, salesKpi, salesByFy, salesClients, salesProdType, salesIndustry] = await Promise.all([sbGet("app_users"), sbGet("departments"), sbGet("categories"), sbGet("vendors"), sbGet("plans"), sbGet("category_budgets"), sbGet("cost_centre_budgets"), sbGet("requests"), sbGet("audit", "&order=ts.asc"), sbGet("app_settings"), sbGet("employees"), sbGet("candidates"), sbGet("assets"), sbGet("admin_tasks"), sbGet("hr_departments"), sbGet("fin_snapshots", "&order=period_end.asc"), sbGet("action_items", "&order=sort_order.asc"), sbGet("leave_types", "&order=sort_order.asc"), sbGet("leave_balances"), sbGet("leave_requests", "&order=created_at.asc"), sbGet("policy_documents", "&order=created_at.asc"), sbGet("policy_questions", "&order=created_at.asc"), sbGet("equipment_requests", "&order=created_at.asc"), sbGet("cost_requests", "&order=created_at.asc"), sbGet("cost_questions", "&order=created_at.asc"), sbGet("cost_settlements", "&order=created_at.asc"), sbGet("sales_budget_lines"), sbGet("sales_kpi_summary"), sbGet("sales_revenue_by_fy", "&order=sort_order.asc"), sbGet("sales_top_clients", "&order=rank.asc"), sbGet("sales_product_type"), sbGet("sales_industry_actual")]);
+    const [users, depsR, catsR, vend, plansR, catB, ccB, reqs, aud, setR, emps, cands, asts, tasks, hrdeps, finSnaps, actItems, lvTypes, lvBal, lvReqs, polDocs, polQs, eqReqs, costReqs, costQs, costSettles, salesBudget, salesKpi, salesByFy, salesClients, salesProdType, salesIndustry, eddR, empDocs] = await Promise.all([sbGet("app_users"), sbGet("departments"), sbGet("categories"), sbGet("vendors"), sbGet("plans"), sbGet("category_budgets"), sbGet("cost_centre_budgets"), sbGet("requests"), sbGet("audit", "&order=ts.asc"), sbGet("app_settings"), sbGet("employees"), sbGet("candidates"), sbGet("assets"), sbGet("admin_tasks"), sbGet("hr_departments"), sbGet("fin_snapshots", "&order=period_end.asc"), sbGet("action_items", "&order=sort_order.asc"), sbGet("leave_types", "&order=sort_order.asc"), sbGet("leave_balances"), sbGet("leave_requests", "&order=created_at.asc"), sbGet("policy_documents", "&order=created_at.asc"), sbGet("policy_questions", "&order=created_at.asc"), sbGet("equipment_requests", "&order=created_at.asc"), sbGet("cost_requests", "&order=created_at.asc"), sbGet("cost_questions", "&order=created_at.asc"), sbGet("cost_settlements", "&order=created_at.asc"), sbGet("sales_budget_lines"), sbGet("sales_kpi_summary"), sbGet("sales_revenue_by_fy", "&order=sort_order.asc"), sbGet("sales_top_clients", "&order=rank.asc"), sbGet("sales_product_type"), sbGet("sales_industry_actual"), sbGet("edd_reviews", "&order=review_date.asc"), sbGet("employee_documents", "&order=uploaded_at.asc")]);
     const plan0 = plansR[0] || {
       id: "plan_cur",
       month: iso(today()).slice(0, 7)
@@ -7808,6 +8318,30 @@ async function loadFromSB() {
       })),
       salesIndustryActual: salesIndustry.map(i => ({
         id: i.id, industry: i.industry, segment: i.segment, actualFy2627: Number(i.actual_fy2627 || 0)
+      })),
+      eddReviews: eddR.map(r => ({
+        id: r.id, employeeId: r.employee_id, reviewType: r.review_type, reviewDate: r.review_date,
+        jobTitle: r.job_title || "", managerId: r.manager_id || "", layer: r.layer || "Execution",
+        currentLevel: r.current_level || "", targetLevel: r.target_level || "",
+        scores: r.scores || {}, averageScore: r.average_score == null ? null : Number(r.average_score),
+        followUpNotes: r.follow_up_notes || "", expectationsNotes: r.expectations_notes || "",
+        performanceStrengthsNotes: r.performance_strengths_notes || "", trajectoryNotes: r.trajectory_notes || "",
+        competencyGaps: r.competency_gaps || "", developmentActions: r.development_actions || [],
+        wellbeingNotes: r.wellbeing_notes || "",
+        hrTotalTargetSalary: r.hr_total_target_salary == null ? null : Number(r.hr_total_target_salary),
+        hrMonthlyGross: r.hr_monthly_gross == null ? null : Number(r.hr_monthly_gross),
+        hrMonthlyBonusTarget: r.hr_monthly_bonus_target == null ? null : Number(r.hr_monthly_bonus_target),
+        hrSavingsPlan: r.hr_savings_plan == null ? null : Number(r.hr_savings_plan),
+        curiosityBudgetItems: r.curiosity_budget_items || [], actions: r.actions || [],
+        agreedByEmployee: !!r.agreed_by_employee, agreedByEmployeeAt: r.agreed_by_employee_at ? ms(r.agreed_by_employee_at) : null,
+        agreedByManager: !!r.agreed_by_manager, agreedByManagerAt: r.agreed_by_manager_at ? ms(r.agreed_by_manager_at) : null,
+        status: r.status || "draft", submittedToHrAt: r.submitted_to_hr_at ? ms(r.submitted_to_hr_at) : null,
+        createdBy: r.created_by || "", createdAt: ms(r.created_at), updatedAt: ms(r.updated_at)
+      })),
+      employeeDocuments: empDocs.map(d => ({
+        id: d.id, employeeId: d.employee_id, docType: d.doc_type || "other", title: d.title,
+        fileUrl: d.file_url, fileName: d.file_name || "", uploadedBy: d.uploaded_by || "",
+        uploadedAt: ms(d.uploaded_at), notes: d.notes || ""
       })),
       settings: {
         _id: st.id || "default",
@@ -8108,6 +8642,27 @@ async function persistDb(prev, cur) {
   if (chg("costSettlements")) jobs.push(sbUpsert("cost_settlements", (cur.costSettlements || []).map(costSettlementSB)));
   if (chg("salesBudgetLines")) jobs.push(sbUpsert("sales_budget_lines", (cur.salesBudgetLines || []).map(b => ({
     id: b.id, segment: b.segment, month: b.month, category: b.category, amount: b.amount, updated_at: new Date().toISOString()
+  }))));
+  if (chg("eddReviews")) jobs.push(sbUpsert("edd_reviews", (cur.eddReviews || []).map(r => ({
+    id: r.id, employee_id: r.employeeId, review_type: r.reviewType, review_date: r.reviewDate,
+    job_title: r.jobTitle || null, manager_id: r.managerId || null, layer: r.layer || null,
+    current_level: r.currentLevel || null, target_level: r.targetLevel || null,
+    scores: r.scores || {}, average_score: eddAverage(r.scores || {}),
+    follow_up_notes: r.followUpNotes || null, expectations_notes: r.expectationsNotes || null,
+    performance_strengths_notes: r.performanceStrengthsNotes || null, trajectory_notes: r.trajectoryNotes || null,
+    competency_gaps: r.competencyGaps || null, development_actions: r.developmentActions || [],
+    wellbeing_notes: r.wellbeingNotes || null,
+    hr_total_target_salary: r.hrTotalTargetSalary, hr_monthly_gross: r.hrMonthlyGross,
+    hr_monthly_bonus_target: r.hrMonthlyBonusTarget, hr_savings_plan: r.hrSavingsPlan,
+    curiosity_budget_items: r.curiosityBudgetItems || [], actions: r.actions || [],
+    agreed_by_employee: !!r.agreedByEmployee, agreed_by_employee_at: r.agreedByEmployeeAt ? new Date(r.agreedByEmployeeAt).toISOString() : null,
+    agreed_by_manager: !!r.agreedByManager, agreed_by_manager_at: r.agreedByManagerAt ? new Date(r.agreedByManagerAt).toISOString() : null,
+    status: r.status || "draft", submitted_to_hr_at: r.submittedToHrAt ? new Date(r.submittedToHrAt).toISOString() : null,
+    created_by: r.createdBy || null, updated_at: new Date().toISOString()
+  }))));
+  if (chg("employeeDocuments")) jobs.push(sbUpsert("employee_documents", (cur.employeeDocuments || []).map(d => ({
+    id: d.id, employee_id: d.employeeId, doc_type: d.docType || "other", title: d.title,
+    file_url: d.fileUrl, file_name: d.fileName || null, uploaded_by: d.uploadedBy || null, notes: d.notes || null
   }))));
   if (chg("settings")) jobs.push(sbUpsert("app_settings", [{
     id: cur.settings._id || "default",
@@ -8528,6 +9083,12 @@ function App() {
     group: "People",
     roles: ["hr_manager", "finance_director", "accountant", "ceo", "admin"]
   }, {
+    id: "eddhub",
+    label: "Employee Data Hub",
+    icon: "userc",
+    group: "People",
+    roles: allR
+  }, {
     id: "leave",
     label: "Leave & time off",
     icon: "cal",
@@ -8770,6 +9331,13 @@ function App() {
     hrAlerts: hrAlerts
   }), tab === "hrpayroll" && /*#__PURE__*/React.createElement(HRPayroll, {
     db: db
+  }), tab === "eddhub" && /*#__PURE__*/React.createElement(EmployeeDataHubV, {
+    db: db,
+    update: update,
+    role: role,
+    meId: meId,
+    myEmpId: myEmpId,
+    nameOf: enameOf
   }), tab === "office" && /*#__PURE__*/React.createElement(OfficeV, {
     db: db,
     update: update,
