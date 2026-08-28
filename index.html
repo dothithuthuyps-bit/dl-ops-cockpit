@@ -2097,6 +2097,7 @@ function seed() {
     salesTopClients: [],
     salesProductType: [],
     salesIndustryActual: [],
+    companyBudgetQuarters: [],
     eddReviews: [],
     employeeDocuments: [],
     settings: {
@@ -3020,6 +3021,144 @@ function SalesPerformanceV({ db, update, role }) {
     budgetTable
   );
 }
+
+/* ================= Financial Health (company-wide Budget/Target + Sales Performance) =================
+   Budget/Target seeded from the "Budget FY26/27" deck slide (Direct Cost / Practice Cost /
+   Opex+Personnel / Ebitda stacked by quarter, FY25/26 through FY26/27). Company-wide, source of
+   truth is company_budget_quarters (editable, admin/ceo/finance_director). "Total" per quarter =
+   Direct Cost + Practice Cost + Opex+Personnel + Ebitda (i.e. total revenue for that quarter). */
+const FINHEALTH_COST_FIELDS = [
+  { key: "directCost", label: "Direct Cost", color: "#17638B" },
+  { key: "practiceCost", label: "Practice Cost", color: "#2396D3" },
+  { key: "opexPersonnel", label: "Opex + Personnel", color: "#64C2F4" },
+  { key: "ebitda", label: "Ebitda", color: "#BAE4FA" }
+];
+const fhQuarterLabel = (r) => `${r.quarter} ${r.fiscalYear}`;
+const fhTotal = (r) => Number(r.directCost || 0) + Number(r.practiceCost || 0) + Number(r.opexPersonnel || 0) + Number(r.ebitda || 0);
+const fhMoney = (n) => Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 0 });
+const fhPct = (n) => n == null ? "—" : `${n >= 0 ? "+" : ""}${n.toFixed(1)}%`;
+
+function CompanyBudgetTargetV({ db, update, role }) {
+  const E = React.createElement;
+  const editable = ["admin", "ceo", "finance_director"].includes(role);
+  const rows = (db.companyBudgetQuarters || []).slice().sort((a, b) => a.sortOrder - b.sortOrder);
+
+  const fy2526Rows = rows.filter(r => r.fiscalYear === "FY25/26");
+  const fy2627Rows = rows.filter(r => r.fiscalYear === "FY26/27");
+  const sumTotal = (list) => list.reduce((s, r) => s + fhTotal(r), 0);
+  const sumField = (list, key) => list.reduce((s, r) => s + Number(r[key] || 0), 0);
+  const fy2526Total = sumTotal(fy2526Rows);
+  const fy2627Total = sumTotal(fy2627Rows);
+  const yoyGrowth = fy2526Total > 0 ? ((fy2627Total - fy2526Total) / fy2526Total) * 100 : null;
+  const fy2627Ebitda = sumField(fy2627Rows, "ebitda");
+  const ebitdaMargin = fy2627Total > 0 ? (fy2627Ebitda / fy2627Total) * 100 : null;
+
+  const kpiCells = [
+    { l: "FY25/26 total", v: fhMoney(fy2526Total) },
+    { l: "FY26/27 total (budget)", v: fhMoney(fy2627Total) },
+    { l: "YoY growth", v: fhPct(yoyGrowth), flag: yoyGrowth != null && yoyGrowth < 0 ? "bad" : "good" },
+    { l: "FY26/27 EBITDA margin", v: ebitdaMargin == null ? "—" : `${ebitdaMargin.toFixed(1)}%` }
+  ];
+
+  const chartLabels = rows.map(fhQuarterLabel);
+  const chartDatasets = FINHEALTH_COST_FIELDS.map(f => ({
+    label: f.label,
+    data: rows.map(r => Number(r[f.key] || 0)),
+    backgroundColor: f.color
+  }));
+  const chartData = { labels: chartLabels, datasets: chartDatasets };
+  const chartOptions = {
+    scales: {
+      x: { stacked: true },
+      y: { stacked: true, ticks: { callback: (v) => fhMoney(v) } }
+    },
+    plugins: { legend: { position: "bottom" } }
+  };
+
+  const growthStrip = E("div", { className: "flex items-center gap-1 overflow-x-auto pb-1" },
+    rows.map((r, i) => {
+      const prev = rows[i - 1];
+      const growth = prev ? ((fhTotal(r) - fhTotal(prev)) / (fhTotal(prev) || 1)) * 100 : null;
+      return E("div", { key: r.id, className: "flex-1 min-w-[90px] text-center bg-neutral-50 rounded-lg py-2" },
+        E("div", { className: "text-[10px] text-neutral-400" }, fhQuarterLabel(r)),
+        E("div", { className: "text-[12px] font-semibold text-neutral-800" }, fhMoney(fhTotal(r))),
+        E("div", { className: `text-[10px] font-medium ${growth == null ? "text-neutral-300" : growth >= 0 ? "text-emerald-600" : "text-rose-600"}` }, growth == null ? "—" : fhPct(growth))
+      );
+    })
+  );
+
+  const saveCell = (id, key, value) => update(next => {
+    const arr = next.companyBudgetQuarters || (next.companyBudgetQuarters = []);
+    const row = arr.find(r => r.id === id);
+    if (row) row[key] = value;
+  });
+
+  const tableHeaderCells = [E("th", { key: "q", className: "px-4 py-2.5 font-medium text-left" }, "Quarter")]
+    .concat(FINHEALTH_COST_FIELDS.map(f => E("th", { key: f.key, className: "px-4 py-2.5 font-medium text-right" }, f.label)))
+    .concat([E("th", { key: "total", className: "px-4 py-2.5 font-medium text-right" }, "Total")]);
+
+  const tableBodyRows = rows.map(r => {
+    const cells = [E("td", { key: "q", className: "px-4 py-2.5 font-medium text-neutral-700 whitespace-nowrap" }, fhQuarterLabel(r))];
+    FINHEALTH_COST_FIELDS.forEach(f => {
+      cells.push(E("td", { key: f.key, className: "px-4 py-1.5 text-right" },
+        editable
+          ? E("input", {
+              type: "number", value: r[f.key] == null ? "" : r[f.key],
+              onChange: (e) => saveCell(r.id, f.key, e.target.value === "" ? 0 : Number(e.target.value)),
+              className: "w-28 text-right text-sm border border-neutral-200 rounded-lg px-2 py-1"
+            })
+          : fhMoney(r[f.key])
+      ));
+    });
+    cells.push(E("td", { key: "total", className: "px-4 py-2.5 text-right font-semibold text-neutral-900" }, fhMoney(fhTotal(r))));
+    return E("tr", { key: r.id, className: "hover:bg-neutral-50/60" }, cells);
+  });
+
+  return E("div", { className: "space-y-4" },
+    E("div", { className: "grid grid-cols-2 md:grid-cols-4 gap-3" },
+      kpiCells.map((k, i) => E(Card, { key: i, className: "p-4" },
+        E("div", { className: "text-[10px] uppercase text-neutral-400" }, k.l),
+        E("div", { className: `text-xl font-bold ${k.flag === "bad" ? "text-rose-600" : k.flag === "good" ? "text-emerald-600" : "text-neutral-900"}` }, k.v)
+      ))
+    ),
+    E(Card, { className: "p-4" },
+      E("div", { className: "text-[11px] uppercase tracking-wide text-neutral-400 mb-2" }, "Budget by quarter"),
+      E(ChartBox, { type: "bar", data: chartData, options: chartOptions, height: 320 })
+    ),
+    E(Card, { className: "p-3" },
+      E("div", { className: "text-[11px] uppercase tracking-wide text-neutral-400 mb-2 px-1" }, "Quarter-over-quarter growth (total)"),
+      growthStrip
+    ),
+    E(Card, { className: "overflow-hidden" },
+      E("div", { className: "px-4 py-2.5 border-b border-neutral-100 flex items-center justify-between" },
+        E("div", { className: "text-[11px] uppercase tracking-wide text-neutral-400" }, "Company budget — editable"),
+        !editable ? E("div", { className: "text-[11px] text-neutral-400" }, "View only for your role") : null
+      ),
+      E("div", { className: "overflow-x-auto" },
+        E("table", { className: "w-full text-sm" },
+          E("thead", null, E("tr", { className: "text-left text-[11px] uppercase tracking-wide text-neutral-400 border-b border-neutral-100 bg-neutral-50/70" }, tableHeaderCells)),
+          E("tbody", { className: "divide-y divide-neutral-50" }, tableBodyRows)
+        )
+      )
+    )
+  );
+}
+
+function FinancialHealthV({ db, update, role }) {
+  const E = React.createElement;
+  const [sub, setSub] = useState("budget");
+  const tabs = [["budget", "Budget & Target"], ["salesperf", "Sales Performance"]];
+  return E("div", { className: "space-y-4 max-w-6xl" },
+    E("div", { className: "flex items-center gap-1 flex-wrap" },
+      tabs.map(([k, l]) => E("button", {
+        key: k, onClick: () => setSub(k),
+        className: `text-sm px-4 py-2 rounded-full ${sub === k ? "bg-neutral-900 text-white" : "bg-white text-neutral-600 ring-1 ring-neutral-200 hover:bg-neutral-50"}`
+      }, l))
+    ),
+    sub === "budget" ? E(CompanyBudgetTargetV, { db, update, role }) : E(SalesPerformanceV, { db, update, role })
+  );
+}
+
 
 /* ================= Employee Data Hub (EDD journey + documents) =================
    Source: "2026.8 EDD Form.docx" (Decision Lab Employee Development Dialogue), imported 2026-08-27.
@@ -8156,7 +8295,7 @@ const ms = x => {
 };
 async function loadFromSB() {
   try {
-    const [users, depsR, catsR, vend, plansR, catB, ccB, reqs, aud, setR, emps, cands, asts, tasks, hrdeps, finSnaps, actItems, lvTypes, lvBal, lvReqs, polDocs, polQs, eqReqs, costReqs, costQs, costSettles, salesBudget, salesKpi, salesByFy, salesClients, salesProdType, salesIndustry, eddR, empDocs] = await Promise.all([sbGet("app_users"), sbGet("departments"), sbGet("categories"), sbGet("vendors"), sbGet("plans"), sbGet("category_budgets"), sbGet("cost_centre_budgets"), sbGet("requests"), sbGet("audit", "&order=ts.asc"), sbGet("app_settings"), sbGet("employees"), sbGet("candidates"), sbGet("assets"), sbGet("admin_tasks"), sbGet("hr_departments"), sbGet("fin_snapshots", "&order=period_end.asc"), sbGet("action_items", "&order=sort_order.asc"), sbGet("leave_types", "&order=sort_order.asc"), sbGet("leave_balances"), sbGet("leave_requests", "&order=created_at.asc"), sbGet("policy_documents", "&order=created_at.asc"), sbGet("policy_questions", "&order=created_at.asc"), sbGet("equipment_requests", "&order=created_at.asc"), sbGet("cost_requests", "&order=created_at.asc"), sbGet("cost_questions", "&order=created_at.asc"), sbGet("cost_settlements", "&order=created_at.asc"), sbGet("sales_budget_lines"), sbGet("sales_kpi_summary"), sbGet("sales_revenue_by_fy", "&order=sort_order.asc"), sbGet("sales_top_clients", "&order=rank.asc"), sbGet("sales_product_type"), sbGet("sales_industry_actual"), sbGet("edd_reviews", "&order=review_date.asc"), sbGet("employee_documents", "&order=uploaded_at.asc")]);
+    const [users, depsR, catsR, vend, plansR, catB, ccB, reqs, aud, setR, emps, cands, asts, tasks, hrdeps, finSnaps, actItems, lvTypes, lvBal, lvReqs, polDocs, polQs, eqReqs, costReqs, costQs, costSettles, salesBudget, salesKpi, salesByFy, salesClients, salesProdType, salesIndustry, eddR, empDocs, companyBudgetQ] = await Promise.all([sbGet("app_users"), sbGet("departments"), sbGet("categories"), sbGet("vendors"), sbGet("plans"), sbGet("category_budgets"), sbGet("cost_centre_budgets"), sbGet("requests"), sbGet("audit", "&order=ts.asc"), sbGet("app_settings"), sbGet("employees"), sbGet("candidates"), sbGet("assets"), sbGet("admin_tasks"), sbGet("hr_departments"), sbGet("fin_snapshots", "&order=period_end.asc"), sbGet("action_items", "&order=sort_order.asc"), sbGet("leave_types", "&order=sort_order.asc"), sbGet("leave_balances"), sbGet("leave_requests", "&order=created_at.asc"), sbGet("policy_documents", "&order=created_at.asc"), sbGet("policy_questions", "&order=created_at.asc"), sbGet("equipment_requests", "&order=created_at.asc"), sbGet("cost_requests", "&order=created_at.asc"), sbGet("cost_questions", "&order=created_at.asc"), sbGet("cost_settlements", "&order=created_at.asc"), sbGet("sales_budget_lines"), sbGet("sales_kpi_summary"), sbGet("sales_revenue_by_fy", "&order=sort_order.asc"), sbGet("sales_top_clients", "&order=rank.asc"), sbGet("sales_product_type"), sbGet("sales_industry_actual"), sbGet("edd_reviews", "&order=review_date.asc"), sbGet("employee_documents", "&order=uploaded_at.asc"), sbGet("company_budget_quarters", "&order=sort_order.asc")]);
     const plan0 = plansR[0] || {
       id: "plan_cur",
       month: iso(today()).slice(0, 7)
@@ -8407,6 +8546,11 @@ async function loadFromSB() {
       })),
       salesIndustryActual: salesIndustry.map(i => ({
         id: i.id, industry: i.industry, segment: i.segment, actualFy2627: Number(i.actual_fy2627 || 0)
+      })),
+      companyBudgetQuarters: companyBudgetQ.map(r => ({
+        id: r.id, fiscalYear: r.fiscal_year, quarter: r.quarter, sortOrder: r.sort_order || 0,
+        directCost: Number(r.direct_cost || 0), practiceCost: Number(r.practice_cost || 0),
+        opexPersonnel: Number(r.opex_personnel || 0), ebitda: Number(r.ebitda || 0)
       })),
       eddReviews: eddR.map(r => ({
         id: r.id, employeeId: r.employee_id, reviewType: r.review_type, reviewDate: r.review_date,
@@ -8731,6 +8875,11 @@ async function persistDb(prev, cur) {
   if (chg("costSettlements")) jobs.push(sbUpsert("cost_settlements", (cur.costSettlements || []).map(costSettlementSB)));
   if (chg("salesBudgetLines")) jobs.push(sbUpsert("sales_budget_lines", (cur.salesBudgetLines || []).map(b => ({
     id: b.id, segment: b.segment, month: b.month, category: b.category, amount: b.amount, updated_at: new Date().toISOString()
+  }))));
+  if (chg("companyBudgetQuarters")) jobs.push(sbUpsert("company_budget_quarters", (cur.companyBudgetQuarters || []).map(r => ({
+    id: r.id, fiscal_year: r.fiscalYear, quarter: r.quarter, sort_order: r.sortOrder || 0,
+    direct_cost: r.directCost, practice_cost: r.practiceCost, opex_personnel: r.opexPersonnel, ebitda: r.ebitda,
+    updated_at: new Date().toISOString()
   }))));
   if (chg("eddReviews")) jobs.push(sbUpsert("edd_reviews", (cur.eddReviews || []).map(r => ({
     id: r.id, employee_id: r.employeeId, review_type: r.reviewType, review_date: r.reviewDate,
@@ -9234,9 +9383,9 @@ function App() {
     roles: ["admin", "ceo", "finance_director", "accountant", "viewer"],
     badge: db.actionItems.filter(a => a.status !== "Done" && a.due_date && parse(a.due_date) < today()).length
   }, {
-    id: "salesperf",
-    label: "Company sales performance",
-    icon: "chart",
+    id: "finhealth",
+    label: "Financial Health",
+    icon: "dollar",
     group: "Insights",
     roles: ["admin", "ceo", "finance_director", "accountant", "viewer"]
   }, {
@@ -9466,7 +9615,7 @@ function App() {
   }), tab === "finturn" && /*#__PURE__*/React.createElement(FinanceTurnaround, {
     db: db,
     update: update
-  }), tab === "salesperf" && /*#__PURE__*/React.createElement(SalesPerformanceV, {
+  }), tab === "finhealth" && /*#__PURE__*/React.createElement(FinancialHealthV, {
     db: db,
     update: update,
     role: role
